@@ -5,18 +5,12 @@ import 'package:lms_pro/session/sessiondetail.dart';
 
 class SessionListPage extends StatefulWidget {
   final int sectionId;
-  final int courseId;
-  final int subjectId;
   final int userId;
-  final String? sectionName;
 
   const SessionListPage({
     super.key,
     required this.sectionId,
-    required this.courseId,
-    required this.subjectId,
     required this.userId,
-    this.sectionName,
   });
 
   @override
@@ -25,124 +19,170 @@ class SessionListPage extends StatefulWidget {
 
 class _SessionListPageState extends State<SessionListPage> {
   final ApiHelper api = ApiHelper();
-
-  bool isLoading = true;
-  bool isError = false;
-  String errorMessage = '';
-  List<Map<String, dynamic>> sessions = [];
+  bool loading = true;
+  List sessions = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchSessions();
+    fetchSessions();
   }
 
-  // =====================================================
-  // FETCH ALL SESSIONS OF THIS SECTION
-  // =====================================================
-  Future<void> _fetchSessions() async {
+  // ================= FETCH SESSIONS =================
+  Future<void> fetchSessions() async {
+    setState(() => loading = true);
+
+    final res = await api.httpGet(
+      'sections/${widget.sectionId}/sessions?user_id=${widget.userId}',
+    );
+
+    final decoded = json.decode(res.body);
+
     setState(() {
-      isLoading = true;
-      isError = false;
-      errorMessage = '';
+      sessions = decoded['data'] ?? [];
+      loading = false;
     });
-
-    try {
-      final response = await api.httpGet(
-        'sections/${widget.sectionId}/sessions?user_id=${widget.userId}',
-      );
-
-      if (response.statusCode == 200) {
-        final decoded = json.decode(response.body);
-        final List list =
-        decoded is Map ? (decoded['data'] ?? []) : decoded;
-
-        setState(() {
-          sessions =
-              list.map((e) => Map<String, dynamic>.from(e)).toList();
-        });
-      } else {
-        isError = true;
-        errorMessage = 'Server error (${response.statusCode})';
-      }
-    } catch (e) {
-      isError = true;
-      errorMessage = 'Network error. Please try again.';
-    } finally {
-      if (mounted) setState(() => isLoading = false);
-    }
   }
 
-  // =====================================================
-  // SINGLE SESSION TILE
-  // =====================================================
-  Widget _sessionTile(Map<String, dynamic> session) {
-    final title = session['title'] ?? session['titel'] ?? 'Untitled';
-    final unlock = session['unlock'] as Map<String, dynamic>? ?? {};
-
-    final unlockedCount = [
-      unlock['video'] == true,
-      unlock['pdf'] == true,
-      unlock['task'] == true,
-      unlock['exam'] == true,
-    ].where((e) => e).length;
-
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
-      child: ListTile(
-        leading: const Icon(Icons.picture_as_pdf),
-        title: Text(
-          title,
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text('$unlockedCount / 4 unlocked'),
-        trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-        onTap: () async {
-          await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => SessionDetailPage(
-                session: session,
-                userId: widget.userId,
-                courseId: widget.courseId,
-                subjectId: widget.subjectId,
-                sectionId: widget.sectionId,
-              ),
-            ),
-          );
-
-          // Refresh list when coming back
-          _fetchSessions();
-        },
+  // ================= LOCK MESSAGE =================
+  void showLockedMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('This session is locked'),
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
 
-  // =====================================================
-  // UI
-  // =====================================================
+  // ================= FLOW BUILDER =================
+  List<Widget> buildFlow(Map session) {
+    // 🔒 LOCKED SESSION
+    if (session['is_locked'] == true) {
+      return const [
+        Text(
+          '🔒 Locked',
+          style: TextStyle(
+            color: Colors.red,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ];
+    }
+
+    final List<Widget> flow = [];
+
+    // 🎥 STEP 1: VIDEO
+    if (session['video_unlocked'] == true) {
+      flow.add(
+        const Text(
+          '✅ Video Completed',
+          style: TextStyle(
+            color: Colors.green,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    } else {
+      flow.add(
+        const Text(
+          '⏳ Watch Video',
+          style: TextStyle(
+            color: Colors.orange,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+
+      // ⛔ Stop flow until video is completed
+      return flow;
+    }
+
+    // 📄 STEP 2: PDF (ONLY AFTER VIDEO)
+    final String pdfStatus =
+    (session['pdf_status'] ?? 'locked').toString();
+
+    if (pdfStatus == 'approved') {
+      flow.add(
+        const Text(
+          '✅ PDF Approved',
+          style: TextStyle(
+            color: Colors.green,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    } else if (pdfStatus == 'pending') {
+      flow.add(
+        const Text(
+          '🕒 PDF Pending Approval',
+          style: TextStyle(
+            color: Colors.orange,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    } else {
+      flow.add(
+        const Text(
+          '⏳ Upload PDF',
+          style: TextStyle(
+            color: Colors.orange,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      );
+    }
+
+    return flow;
+  }
+
+  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.sectionName ?? 'Sessions'),
-      ),
-      body: RefreshIndicator(
-        onRefresh: _fetchSessions,
-        child: isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : isError
-            ? Center(child: Text(errorMessage))
-            : sessions.isEmpty
-            ? const Center(child: Text('No sessions found'))
-            : ListView.builder(
-          itemCount: sessions.length,
-          itemBuilder: (_, i) =>
-              _sessionTile(sessions[i]),
-        ),
+      appBar: AppBar(title: const Text('All Sessions')),
+      body: loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView.builder(
+        itemCount: sessions.length,
+        itemBuilder: (_, index) {
+          final session = sessions[index];
+          final bool locked = session['is_locked'] == true;
+
+          return Card(
+            margin: const EdgeInsets.all(10),
+            child: ListTile(
+              leading: Icon(
+                locked ? Icons.lock : Icons.lock_open,
+                color: locked ? Colors.red : Colors.green,
+              ),
+              title: Text(session['title'] ?? 'Session'),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: buildFlow(session),
+              ),
+              onTap: () async {
+                if (locked) {
+                  showLockedMessage();
+                  return;
+                }
+
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => SessionDetailPage(
+                      sessionId: session['session_id'],
+                      userId: widget.userId,
+                    ),
+                  ),
+                );
+
+                // 🔁 Refresh after returning
+                fetchSessions();
+              },
+            ),
+          );
+        },
       ),
     );
   }

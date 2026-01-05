@@ -1,23 +1,17 @@
-import 'package:flutter/material.dart';
+import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
-import 'package:http/http.dart' as http;
-import 'package:iconsax_plus/iconsax_plus.dart';
+import 'package:flutter/material.dart';
+import 'package:lms_pro/ApiHelper/apihelper.dart';
+import 'package:lms_pro/video/videoplayer.dart';
 
 class SessionDetailPage extends StatefulWidget {
-  final Map<String, dynamic> session;
+  final int sessionId;
   final int userId;
-
-  final int? courseId;
-  final int? subjectId;
-  final int? sectionId;
 
   const SessionDetailPage({
     super.key,
-    required this.session,
+    required this.sessionId,
     required this.userId,
-    this.courseId,
-    this.subjectId,
-    this.sectionId,
   });
 
   @override
@@ -25,150 +19,113 @@ class SessionDetailPage extends StatefulWidget {
 }
 
 class _SessionDetailPageState extends State<SessionDetailPage> {
-  static const String baseUrl =
-      "https://0fef2e6c7c31.ngrok-free.app"; // ✅ API BASE
+  final ApiHelper api = ApiHelper();
 
-  bool isUploading = false;
+  bool loading = true;
+  bool uploading = false;
+  Map<String, dynamic>? session;
 
-  // =====================================================
-  // PDF UPLOAD (FIXED & SAFE)
-  // =====================================================
+  @override
+  void initState() {
+    super.initState();
+    fetchSession();
+  }
+
+  // ================= FETCH SESSION =================
+  Future<void> fetchSession() async {
+    final res = await api.httpGet(
+      'sessions/${widget.sessionId}?user_id=${widget.userId}',
+    );
+
+    final decoded = json.decode(res.body);
+
+    setState(() {
+      session = decoded['data'];
+      loading = false;
+    });
+  }
+
+  // ================= UPLOAD PDF =================
   Future<void> uploadPdf() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf'],
     );
 
-    if (result == null || result.files.single.path == null) return;
+    if (result == null) return;
 
-    setState(() => isUploading = true);
+    setState(() => uploading = true);
 
-    final request = http.MultipartRequest(
-      'POST',
-      Uri.parse('$baseUrl/api/session/upload-step'),
+    await api.uploadFile(
+      endpoint: 'session/upload-pdf',
+      filePath: result.files.single.path!,
+      fields: {
+        'session_id': widget.sessionId.toString(),
+        'user_id': widget.userId.toString(),
+      },
     );
 
-    // ✅ REQUIRED FIELDS
-    request.fields['user_id'] =
-        widget.userId.toString();
-    request.fields['session_id'] =
-        widget.session['session_id'].toString();
-    request.fields['step'] = 'pdf';
+    setState(() => uploading = false);
 
-    // ✅ OPTIONAL IDS (ONLY IF PRESENT)
-    if (widget.courseId != null) {
-      request.fields['course_id'] =
-          widget.courseId.toString();
-    }
-    if (widget.subjectId != null) {
-      request.fields['subject_id'] =
-          widget.subjectId.toString();
-    }
-    if (widget.sectionId != null) {
-      request.fields['section_id'] =
-          widget.sectionId.toString();
-    }
-
-    request.files.add(
-      await http.MultipartFile.fromPath(
-        'file',
-        result.files.single.path!,
-      ),
-    );
-
-    final response = await request.send();
-
-    if (!mounted) return;
-
-    setState(() => isUploading = false);
-
-    if (response.statusCode == 200) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("✅ PDF uploaded successfully"),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("❌ Upload failed (${response.statusCode})"),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
+    fetchSession(); // 🔁 refresh status
   }
 
-  // =====================================================
-  // UI
-  // =====================================================
   @override
   Widget build(BuildContext context) {
-    final unlock = widget.session['unlock'] ?? {};
-    final pdfUnlocked = unlock['pdf'] == true;
+    if (loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (session == null) {
+      return const Scaffold(
+        body: Center(child: Text('Failed to load session')),
+      );
+    }
+
+    final bool videoDone = session!['video_unlocked'] == true;
+    final String pdfStatus = session!['pdf_status'] ?? 'locked';
 
     return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.session['title'] ?? 'Session'),
-      ),
+      appBar: AppBar(title: Text(session!['title'] ?? 'Session')),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // SESSION INFO
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: ListTile(
-                leading: const Icon(IconsaxPlusBold.book_1),
-                title: Text(
-                  widget.session['title'],
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(
-                  "Type: ${widget.session['type']}",
-                ),
+            // 🎥 VIDEO
+            Expanded(
+              child: YoutubePlayerPage(
+                videoUrl: session!['video'],
               ),
             ),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
 
-            // PDF SECTION
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
+            // 📄 PDF FLOW
+            if (!videoDone)
+              const Text(
+                'Complete video to unlock PDF upload',
+                style: TextStyle(color: Colors.orange),
               ),
-              child: ListTile(
-                leading: Icon(
-                  Icons.picture_as_pdf,
-                  color: pdfUnlocked ? Colors.green : Colors.red,
-                ),
-                title: const Text("PDF Material"),
-                subtitle: Text(
-                  pdfUnlocked
-                      ? "Unlocked"
-                      : "Upload PDF to unlock (Admin approval required)",
-                ),
-                trailing: isUploading
-                    ? const SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-                    : pdfUnlocked
-                    ? IconButton(
-                  icon: const Icon(Icons.open_in_new),
-                  onPressed: () {
-                    // TODO: open pdf viewer
-                  },
-                )
-                    : ElevatedButton(
-                  onPressed: uploadPdf,
-                  child: const Text("Upload PDF"),
-                ),
+
+            if (videoDone && pdfStatus == 'locked')
+              ElevatedButton(
+                onPressed: uploading ? null : uploadPdf,
+                child: Text(uploading ? 'Uploading...' : 'Upload PDF'),
               ),
-            ),
+
+            if (pdfStatus == 'pending')
+              const Text(
+                'PDF submitted. Waiting for admin approval',
+                style: TextStyle(color: Colors.orange),
+              ),
+
+            if (pdfStatus == 'approved')
+              const Text(
+                'PDF approved. Session completed ✅',
+                style: TextStyle(color: Colors.green),
+              ),
           ],
         ),
       ),

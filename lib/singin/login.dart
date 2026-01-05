@@ -282,7 +282,7 @@ class _LoginPageState extends State<LoginPage> {
   bool isLoading = false;
   bool obscurePassword = true;
 
-  final String apiUrl = 'https://0fef2e6c7c31.ngrok-free.app/api/student/login';
+  final String apiUrl = 'https://c1e2ed272a7c.ngrok-free.app/api/student/login';
 
 
   Future<void> loginUser() async {

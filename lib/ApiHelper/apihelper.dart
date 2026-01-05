@@ -1,10 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiHelper {
-  // CHANGE ONLY THIS WHEN NGROK CHANGES
-  static const String baseUrl = "https://0fef2e6c7c31.ngrok-free.app/api/";
+  static const String baseUrl =
+      "https://c1e2ed272a7c.ngrok-free.app/api/";
 
   // ---------------------- COMMON HEADERS ----------------------
   Future<Map<String, String>> _headers() async {
@@ -13,8 +14,8 @@ class ApiHelper {
 
     return {
       "Accept": "application/json",
-      "Content-Type": "application/json",
-      if (token != null && token.isNotEmpty) "Authorization": "Bearer $token",
+      if (token != null && token.isNotEmpty)
+        "Authorization": "Bearer $token",
     };
   }
 
@@ -30,7 +31,10 @@ class ApiHelper {
   Future<http.Response> httpPost(String path, Map data) async {
     return await http.post(
       Uri.parse(baseUrl + path),
-      headers: await _headers(),
+      headers: {
+        ...await _headers(),
+        "Content-Type": "application/json",
+      },
       body: json.encode(data),
     );
   }
@@ -39,7 +43,10 @@ class ApiHelper {
   Future<http.Response> httpPut(String path, Map data) async {
     return await http.put(
       Uri.parse(baseUrl + path),
-      headers: await _headers(),
+      headers: {
+        ...await _headers(),
+        "Content-Type": "application/json",
+      },
       body: json.encode(data),
     );
   }
@@ -50,5 +57,41 @@ class ApiHelper {
       Uri.parse(baseUrl + path),
       headers: await _headers(),
     );
+  }
+
+  // =====================================================
+  // 🔥 FILE UPLOAD (PDF) — FINAL & WORKING
+  // =====================================================
+  Future<void> uploadFile({
+    required String endpoint,
+    required String filePath,
+    required Map<String, String> fields,
+  }) async {
+    final uri = Uri.parse(baseUrl + endpoint);
+
+    final request = http.MultipartRequest('POST', uri);
+
+    // 🔑 Auth headers (DO NOT set Content-Type here)
+    request.headers.addAll(await _headers());
+
+    // Add text fields
+    request.fields.addAll(fields);
+
+    // Add file (Laravel expects "file")
+    request.files.add(
+      await http.MultipartFile.fromPath(
+        'file',
+        filePath,
+      ),
+    );
+
+    final response = await request.send();
+
+    if (response.statusCode != 200) {
+      final resp = await response.stream.bytesToString();
+      throw Exception(
+        'Upload failed (${response.statusCode}) → $resp',
+      );
+    }
   }
 }

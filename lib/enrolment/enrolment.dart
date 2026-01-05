@@ -18,7 +18,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   bool isLoading = true;
   bool isError = false;
   String? cancellingId;
-  int _selectedFilter = 0; // 0: All, 1: In Progress, 2: Completed
+  int _selectedFilter = 0;
   final List<String> _filterOptions = ['All', 'In Progress', 'Completed'];
 
   @override
@@ -41,6 +41,8 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
   }
 
   Future<void> _fetchEnrollments() async {
+    if (!mounted) return;
+
     setState(() {
       isLoading = true;
       isError = false;
@@ -58,415 +60,435 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
 
           m['enrollment_id'] = m['id'] ?? m['enroll_id'];
           m['course_id'] = m['course']?['id'] ?? m['course']?['course_id'];
-          m['course_name'] = m['course']?['course_name'] ?? m['course']?['name'] ?? "Course";
+          m['course_name'] = m['course']?['course_name'] ?? m['course']?['name'] ?? "Untitled Course";
           m['progress'] = m['progress'] ?? 0;
           m['enrolled_at'] = m['created_at'] ?? m['enrolled_at'];
           m['course_object'] = m['course'];
-          m['instructor'] = m['course']?['instructor'] ?? 'Unknown Instructor';
-          m['duration'] = m['course']?['duration'] ?? '12 weeks';
-          m['level'] = m['course']?['level'] ?? 'Beginner';
+          m['instructor'] = m['course']?['instructor'] ?? 'Instructor';
+          m['duration'] = m['course']?['duration'] ?? 'Self-paced';
+          m['level'] = m['course']?['level'] ?? 'All Levels';
           m['thumbnail'] = m['course']?['thumbnail'] ?? m['course']?['image_url'];
           m['category'] = m['course']?['category'] ?? 'General';
 
           return m;
         }).toList();
 
-        setState(() {
-          enrollments = normalized;
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            enrollments = normalized;
+            isLoading = false;
+          });
+        }
       } else {
+        if (mounted) {
+          setState(() {
+            isError = true;
+            isLoading = false;
+          });
+        }
+        _showSnack("Failed to load courses");
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
           isError = true;
           isLoading = false;
         });
-        _showSnack("Failed to load enrollments");
       }
-    } catch (e) {
-      setState(() {
-        isError = true;
-        isLoading = false;
-      });
-      _showSnack("Network error");
+      _showSnack("Connection error");
     }
   }
 
-  Future<bool> _cancelEnrollment(dynamic enrollmentId) async {
-    setState(() {
-      cancellingId = enrollmentId.toString();
-    });
-
-    showDialog(
+  Future<void> _cancelEnrollment(dynamic enrollmentId) async {
+    final shouldCancel = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text("Cancel Enrollment"),
-        content: Text("Are you sure you want to cancel this enrollment?"),
+        title: Text(
+          "Cancel Enrollment",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onSurface,
+          ),
+        ),
+        content: Text(
+          "You won't be able to access this course after cancellation.",
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text("No", style: TextStyle(color: Colors.grey[600])),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              try {
-                final resp = await ApiHelper().httpDelete("enrolments/$enrollmentId");
-                cancellingId = null;
-
-                if (resp.statusCode == 200 || resp.statusCode == 204) {
-                  setState(() {
-                    enrollments.removeWhere(
-                          (e) => e['enrollment_id'].toString() == enrollmentId.toString(),
-                    );
-                  });
-                  _showSnack("Enrollment cancelled", isError: false);
-                } else {
-                  _showSnack("Failed to cancel");
-                }
-              } catch (e) {
-                _showSnack("Network error");
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              "Keep",
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
+              ),
             ),
-            child: Text("Yes, Cancel"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(
+              foregroundColor: Theme.of(context).colorScheme.error,
+            ),
+            child: Text("Cancel Course"),
           ),
         ],
       ),
     );
 
-    return false;
+    if (shouldCancel != true) return;
+
+    setState(() {
+      cancellingId = enrollmentId.toString();
+    });
+
+    try {
+      final resp = await ApiHelper().httpDelete("enrolments/$enrollmentId");
+
+      if (mounted) {
+        setState(() {
+          cancellingId = null;
+        });
+      }
+
+      if (resp.statusCode == 200 || resp.statusCode == 204) {
+        if (mounted) {
+          setState(() {
+            enrollments.removeWhere(
+                  (e) => e['enrollment_id'].toString() == enrollmentId.toString(),
+            );
+          });
+        }
+        _showSnack("Enrollment removed", isError: false);
+      } else {
+        _showSnack("Failed to cancel");
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          cancellingId = null;
+        });
+      }
+      _showSnack("Network error");
+    }
   }
 
   List<Map<String, dynamic>> get _filteredEnrollments {
     if (_selectedFilter == 0) return enrollments;
-    if (_selectedFilter == 1) return enrollments.where((e) => (e['progress'] ?? 0) < 100).toList();
+    if (_selectedFilter == 1) {
+      return enrollments.where((e) => (e['progress'] ?? 0) < 100).toList();
+    }
     return enrollments.where((e) => (e['progress'] ?? 0) >= 100).toList();
   }
 
-  String _getProgressStatus(int progress) {
-    if (progress == 0) return 'Not Started';
-    if (progress < 50) return 'Beginner';
-    if (progress < 80) return 'Intermediate';
-    if (progress < 100) return 'Almost Done';
-    return 'Completed';
+  Color _getProgressColor(BuildContext context, int progress) {
+    final theme = Theme.of(context);
+    if (progress == 0) return theme.colorScheme.outline.withOpacity(0.5);
+    if (progress < 50) return theme.colorScheme.primary.withOpacity(0.7);
+    if (progress < 80) return theme.colorScheme.primary;
+    if (progress < 100) return theme.colorScheme.tertiary;
+    return theme.colorScheme.secondary;
   }
 
-  Color _getProgressColor(int progress) {
-    if (progress == 0) return Colors.grey;
-    if (progress < 50) return Colors.orange;
-    if (progress < 80) return Colors.blue;
-    if (progress < 100) return Colors.green;
-    return Colors.deepPurple;
-  }
-
-  Widget _buildProgressBar(int progress) {
-    return Container(
-      height: 6,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: Colors.grey[200],
-        borderRadius: BorderRadius.circular(3),
-      ),
-      child: Stack(
-        children: [
-          Container(
-            height: 6,
-            width: double.infinity,
-            decoration: BoxDecoration(
-              color: _getProgressColor(progress),
-              borderRadius: BorderRadius.circular(3),
-            ),
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * (progress / 100),
-            ),
-          ),
-        ],
+  Widget _buildProgressBar(BuildContext context, int progress) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(4),
+      child: LinearProgressIndicator(
+        value: progress / 100,
+        backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+        color: _getProgressColor(context, progress),
+        minHeight: 6,
       ),
     );
   }
 
   void _showSnack(String msg, {bool isError = true}) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Row(
+        content: Text(msg),
+        backgroundColor: isError
+            ? Theme.of(context).colorScheme.error
+            : Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.fixed,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(BuildContext context) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 48,
+            height: 48,
+            child: CircularProgressIndicator(
+              strokeWidth: 2.5,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            "Loading courses...",
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildErrorState(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(isError ? Icons.error_outline : Icons.check_circle, color: Colors.white),
-            SizedBox(width: 8),
-            Expanded(child: Text(msg)),
+            Icon(
+              Icons.error_outline_rounded,
+              size: 64,
+              color: Theme.of(context).colorScheme.error,
+            ),
+            const SizedBox(height: 24),
+            Text(
+              "Unable to load courses",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              "Please check your connection and try again",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+            const SizedBox(height: 32),
+            FilledButton.icon(
+              onPressed: _fetchEnrollments,
+              icon: const Icon(Icons.refresh_rounded, size: 20),
+              label: const Text("Try Again"),
+            ),
           ],
         ),
-        backgroundColor: isError ? Colors.red : Colors.green,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }
 
-  Widget _buildLoadingState() {
+  Widget _buildEmptyState(BuildContext context) {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurple),
-          ),
-          SizedBox(height: 20),
-          Text(
-            "Loading your courses...",
-            style: TextStyle(
-              color: Colors.grey[600],
-              fontSize: 16,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              IconsaxPlusLinear.book_1,
+              size: 80,
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.5),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.error_outline,
-            color: Colors.red,
-            size: 64,
-          ),
-          SizedBox(height: 16),
-          Text(
-            "Failed to load enrollments",
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[800],
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Please check your internet connection",
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-          SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _fetchEnrollments,
-            icon: Icon(Icons.refresh),
-            label: Text("Try Again"),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.deepPurple,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+            const SizedBox(height: 24),
+            Text(
+              "No courses yet",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).colorScheme.onSurface,
               ),
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-          ),
-        ],
+            const SizedBox(height: 12),
+            Text(
+              "Browse available courses and start learning",
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            IconsaxPlusBold.book_1,
-            color: Colors.grey[400],
-            size: 80,
-          ),
-          SizedBox(height: 16),
-          Text(
-            "No enrollments yet",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              color: Colors.grey[700],
-            ),
-          ),
-          SizedBox(height: 8),
-          Text(
-            "Explore courses and start learning!",
-            style: TextStyle(color: Colors.grey[600]),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterChips() {
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      height: 50,
-      child: ListView.separated(
+  Widget _buildFilterChips(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        itemCount: _filterOptions.length,
-        separatorBuilder: (_, __) => SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          return FilterChip(
-            label: Text(_filterOptions[index]),
-            selected: _selectedFilter == index,
-            onSelected: (selected) {
-              setState(() {
-                _selectedFilter = index;
-              });
-            },
-            selectedColor: Colors.deepPurple[50],
-            backgroundColor: Colors.white,
-            labelStyle: TextStyle(
-              color: _selectedFilter == index ? Colors.deepPurple : Colors.grey[700],
-              fontWeight: FontWeight.w500,
-            ),
-            shape: StadiumBorder(
-              side: BorderSide(
-                color: _selectedFilter == index ? Colors.deepPurple : Colors.grey[300]!,
+        child: Row(
+          children: List.generate(_filterOptions.length, (index) {
+            return Padding(
+              padding: EdgeInsets.only(right: index < _filterOptions.length - 1 ? 8 : 0),
+              child: FilterChip(
+                label: Text(_filterOptions[index]),
+                selected: _selectedFilter == index,
+                onSelected: (selected) {
+                  setState(() {
+                    _selectedFilter = index;
+                  });
+                },
+                selectedColor: Theme.of(context).colorScheme.primary,
+                backgroundColor: Theme.of(context).colorScheme.surfaceVariant,
+                labelStyle: TextStyle(
+                  color: _selectedFilter == index
+                      ? Theme.of(context).colorScheme.onPrimary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w500,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                showCheckmark: false,
               ),
-            ),
-            showCheckmark: false,
-          );
-        },
+            );
+          }),
+        ),
       ),
     );
   }
 
-  Widget _buildStatsCard() {
+  Widget _buildStatsCard(BuildContext context) {
     final total = enrollments.length;
     final completed = enrollments.where((e) => (e['progress'] ?? 0) >= 100).length;
     final inProgress = total - completed;
 
     return Container(
-      margin: EdgeInsets.all(16),
-      padding: EdgeInsets.all(20),
+      margin: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Colors.deepPurple, Colors.purple],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.deepPurple.withOpacity(0.3),
-            blurRadius: 15,
-            offset: Offset(0, 5),
-          ),
-        ],
+        color: Theme.of(context).colorScheme.primaryContainer,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem(total, "Total", IconsaxPlusBold.book_1),
-          _buildStatItem(inProgress, "In Progress", Icons.timeline),
-          _buildStatItem(completed, "Completed", Icons.check_circle),
+          _buildStatItem(
+            context,
+            total,
+            "Total",
+            IconsaxPlusLinear.book_1,
+          ),
+          _buildStatItem(
+            context,
+            inProgress,
+            "In Progress",
+            Icons.timeline_rounded,
+          ),
+          _buildStatItem(
+            context,
+            completed,
+            "Completed",
+            Icons.check_circle_rounded,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(int count, String label, IconData icon) {
+  Widget _buildStatItem(
+      BuildContext context,
+      int count,
+      String label,
+      IconData icon,
+      ) {
     return Column(
       children: [
         Container(
-          padding: EdgeInsets.all(12),
+          padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            shape: BoxShape.circle,
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
           ),
-          child: Icon(icon, color: Colors.white, size: 24),
+          child: Icon(
+            icon,
+            size: 22,
+            color: Theme.of(context).colorScheme.primary,
+          ),
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Text(
           count.toString(),
           style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
+            fontSize: 22,
             fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
           ),
         ),
+        const SizedBox(height: 4),
         Text(
           label,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.9),
             fontSize: 12,
+            color: Theme.of(context).colorScheme.onPrimaryContainer.withOpacity(0.7),
           ),
         ),
       ],
     );
   }
 
-  Widget _buildEnrollmentCard(Map enrollment, int index) {
+  Widget _buildEnrollmentCard(BuildContext context, Map enrollment) {
     final progress = (enrollment["progress"] as num).toInt();
-    final status = _getProgressStatus(progress);
     final courseName = enrollment["course_name"];
     final instructor = enrollment["instructor"];
     final duration = enrollment["duration"];
     final thumbnail = enrollment["thumbnail"];
+    final level = enrollment["level"];
+    final category = enrollment["category"];
+    final isCancelling = cancellingId == enrollment["enrollment_id"].toString();
 
     return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            blurRadius: 10,
-            offset: Offset(0, 3),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Card(
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withOpacity(0.1),
+            width: 1,
           ),
-        ],
-        border: Border.all(color: Colors.grey[200]!),
-      ),
-      child: Column(
-        children: [
-          // Course Header with Thumbnail
-          Container(
-            height: 120,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-              image: thumbnail != null
-                  ? DecorationImage(
-                image: NetworkImage(thumbnail),
-                fit: BoxFit.cover,
-              )
-                  : null,
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Colors.deepPurple[300]!, Colors.purple[300]!],
-              ),
-            ),
-            child: Stack(
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Course thumbnail and progress
+            Stack(
               children: [
-                // Overlay
                 Container(
+                  height: 140,
+                  width: double.infinity,
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                    color: Colors.black.withOpacity(0.3),
-                  ),
-                ),
-                Positioned(
-                  top: 12,
-                  right: 12,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: _getProgressColor(progress).withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(12),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
                     ),
-                    child: Text(
-                      status,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+                    image: thumbnail != null && thumbnail.toString().isNotEmpty
+                        ? DecorationImage(
+                      image: NetworkImage(thumbnail.toString()),
+                      fit: BoxFit.cover,
+                    )
+                        : null,
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
                   ),
+                  child: thumbnail == null || thumbnail.toString().isEmpty
+                      ? Center(
+                    child: Icon(
+                      IconsaxPlusLinear.book_1,
+                      size: 48,
+                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+                    ),
+                  )
+                      : null,
                 ),
                 Positioned(
                   bottom: 12,
@@ -475,178 +497,173 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.background.withOpacity(0.9),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          category ?? "General",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
                       Text(
                         courseName,
                         style: TextStyle(
-                          color: Colors.white,
                           fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          shadows: [
-                            Shadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 3,
-                              offset: Offset(1, 1),
-                            ),
-                          ],
+                          fontWeight: FontWeight.w600,
+                          color: Theme.of(context).colorScheme.onBackground,
                         ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                      ),
-                      SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Icon(Icons.person_outline, color: Colors.white70, size: 14),
-                          SizedBox(width: 4),
-                          Text(
-                            instructor,
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ],
                       ),
                     ],
                   ),
                 ),
               ],
             ),
-          ),
 
-          // Course Details
-          Padding(
-            padding: EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Progress Section
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      "Progress",
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                        fontWeight: FontWeight.w500,
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Instructor and level
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline_rounded,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                       ),
-                    ),
-                    Text(
-                      "$progress%",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: _getProgressColor(progress),
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
-                SizedBox(height: 8),
-                _buildProgressBar(progress),
-
-                SizedBox(height: 16),
-                // Course Info
-                Row(
-                  children: [
-                    _buildInfoItem(Icons.timer_outlined, duration),
-                    SizedBox(width: 16),
-                    _buildInfoItem(IconsaxPlusBold.ranking, enrollment["level"]),
-                    Spacer(),
-                    Container(
-                      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[100],
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        enrollment["category"] ?? "General",
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[700],
-                          fontWeight: FontWeight.w500,
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          instructor,
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
+                      Icon(
+                        Icons.bar_chart_rounded,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        level,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
 
-                SizedBox(height: 16),
-                // Action Buttons
-                Row(
-                  children: [
-                    Expanded(
-                      child: ElevatedButton(
-                        onPressed: () {
-                          final id = enrollment["course_id"];
-                          if (id == null) {
-                            _showSnack("Course id missing");
-                            return;
-                          }
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => CourseDetailPage(
-                                courseId: int.parse(id.toString()),
+                  const SizedBox(height: 16),
 
-                              ),
+                  // Progress section
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Progress",
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                             ),
-                          );
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.deepPurple,
-                          foregroundColor: Colors.white,
+                          ),
+                          Text(
+                            "$progress%",
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: _getProgressColor(context, progress),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildProgressBar(context, progress),
+                    ],
+                  ),
+
+                  const SizedBox(height: 16),
+
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          onPressed: isCancelling
+                              ? null
+                              : () {
+                            final id = enrollment["course_id"];
+                            if (id == null) {
+                              _showSnack("Course unavailable");
+                              return;
+                            }
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => CourseDetailPage(
+                                  courseId: int.parse(id.toString()),
+                                ),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.play_arrow_rounded, size: 20),
+                          label: Text(progress == 0 ? "Start" : "Continue"),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        onPressed: isCancelling
+                            ? null
+                            : () => _cancelEnrollment(enrollment["enrollment_id"]),
+                        icon: isCancelling
+                            ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          ),
+                        )
+                            : Icon(
+                          Icons.more_vert_rounded,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                        style: IconButton.styleFrom(
+                          backgroundColor:
+                          Theme.of(context).colorScheme.surfaceVariant,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          padding: EdgeInsets.symmetric(vertical: 14),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.play_circle_outline, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              progress == 0 ? "Start Course" : "Continue",
-                              style: TextStyle(fontWeight: FontWeight.w600),
-                            ),
-                          ],
                         ),
                       ),
-                    ),
-                    SizedBox(width: 8),
-                    IconButton(
-                      onPressed: () => _cancelEnrollment(enrollment["enrollment_id"]),
-                      icon: Icon(Icons.more_vert),
-                      style: IconButton.styleFrom(
-                        backgroundColor: Colors.grey[100],
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoItem(IconData icon, String text) {
-    return Row(
-      children: [
-        Icon(icon, color: Colors.grey[600], size: 16),
-        SizedBox(width: 4),
-        Text(
-          text,
-          style: TextStyle(
-            fontSize: 12,
-            color: Colors.grey[600],
-          ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
@@ -657,44 +674,43 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
         title: Text(
           "My Courses",
           style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: Colors.grey[800],
+            fontSize: 20,
+            fontWeight: FontWeight.w600,
+            color: Theme.of(context).colorScheme.onBackground,
           ),
         ),
-        backgroundColor: Colors.white,
-        elevation: 0,
         centerTitle: false,
         actions: [
           IconButton(
             onPressed: _fetchEnrollments,
-            icon: Icon(Icons.refresh),
-            color: Colors.grey[700],
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: "Refresh",
           ),
         ],
       ),
-      backgroundColor: Color(0xFFF8FAFC),
       body: isLoading
-          ? _buildLoadingState()
+          ? _buildLoadingState(context)
           : isError
-          ? _buildErrorState()
+          ? _buildErrorState(context)
           : enrollments.isEmpty
-          ? _buildEmptyState()
+          ? _buildEmptyState(context)
           : RefreshIndicator(
         onRefresh: _fetchEnrollments,
-        color: Colors.deepPurple,
-        backgroundColor: Colors.white,
+        color: Theme.of(context).colorScheme.primary,
+        backgroundColor: Theme.of(context).colorScheme.background,
         child: Column(
           children: [
-            _buildStatsCard(),
-            _buildFilterChips(),
-            SizedBox(height: 8),
+            _buildStatsCard(context),
+            _buildFilterChips(context),
+            const SizedBox(height: 4),
             Expanded(
               child: ListView.builder(
                 itemCount: _filteredEnrollments.length,
-                padding: EdgeInsets.only(bottom: 16),
-                itemBuilder: (_, i) =>
-                    _buildEnrollmentCard(_filteredEnrollments[i], i),
+                padding: const EdgeInsets.only(bottom: 16),
+                itemBuilder: (context, index) => _buildEnrollmentCard(
+                  context,
+                  _filteredEnrollments[index],
+                ),
               ),
             ),
           ],

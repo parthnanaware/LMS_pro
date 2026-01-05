@@ -10,12 +10,12 @@ ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load saved theme
+  // Load saved theme only
   final prefs = await SharedPreferences.getInstance();
   bool isDark = prefs.getBool("dark_mode") ?? false;
   themeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
 
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
@@ -41,9 +41,9 @@ class MyApp extends StatelessWidget {
           // LIGHT THEME
           theme: ThemeData(
             brightness: Brightness.light,
-            scaffoldBackgroundColor: Color(0xFFF8F7FF),
+            scaffoldBackgroundColor: const Color(0xFFF8F7FF),
             colorScheme: ColorScheme.fromSeed(
-              seedColor: Color(0xFF9B5DE5),
+              seedColor: const Color(0xFF9B5DE5),
               brightness: Brightness.light,
             ),
             cardColor: Colors.white,
@@ -53,9 +53,9 @@ class MyApp extends StatelessWidget {
           // DARK THEME
           darkTheme: ThemeData(
             brightness: Brightness.dark,
-            scaffoldBackgroundColor: Color(0xFF0F0A19),
-            cardColor: Color(0xFF191326),
-            colorScheme: ColorScheme.dark(
+            scaffoldBackgroundColor: const Color(0xFF0F0A19),
+            cardColor: const Color(0xFF191326),
+            colorScheme: const ColorScheme.dark(
               primary: Color(0xFFB983FF),
               secondary: Color(0xFF9B5DE5),
               background: Color(0xFF0F0A19),
@@ -63,11 +63,14 @@ class MyApp extends StatelessWidget {
             useMaterial3: true,
           ),
 
+          // ROUTES
           routes: {
+            '/onboarding': (context) => OnboardingScreen(),
             '/login': (context) => LoginPage(),
             '/student-dashboard': (context) => const HomePage(),
           },
 
+          // ✅ FIRST SCREEN
           home: SplashScreen(),
         );
       },

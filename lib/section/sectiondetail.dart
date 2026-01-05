@@ -7,15 +7,13 @@ import 'package:lms_pro/session/sessionlist.dart';
 class SectionDetailPage extends StatefulWidget {
   final int courseId;
   final int subjectId;
-  final String? sectionId;
-  final Map<String, dynamic>? sectionObject;
+  final int sectionId;
 
   const SectionDetailPage({
     super.key,
     required this.courseId,
     required this.subjectId,
-    this.sectionId,
-    this.sectionObject,
+    required this.sectionId,
   });
 
   @override
@@ -23,107 +21,76 @@ class SectionDetailPage extends StatefulWidget {
 }
 
 class _SectionDetailPageState extends State<SectionDetailPage> {
-  bool isLoading = false;
-  bool isError = false;
-  Map<String, dynamic>? section;
+  final ApiHelper api = ApiHelper();
+
+  int totalSessions = 0;
+  int completedSessions = 0;
+  double progress = 0;
 
   @override
   void initState() {
     super.initState();
-    if (widget.sectionObject != null) {
-      section = Map<String, dynamic>.from(widget.sectionObject!);
-    } else if (widget.sectionId != null) {
-      _fetchSection();
-    }
+    fetchProgress();
   }
 
-  Future<void> _fetchSection() async {
+  Future<void> fetchProgress() async {
+    final res = await api.httpGet(
+      'sections/${widget.sectionId}/sessions?user_id=1',
+    );
+
+    final decoded = json.decode(res.body);
+    final List sessions = decoded['data'] ?? [];
+
     setState(() {
-      isLoading = true;
-      isError = false;
+      totalSessions = sessions.length;
+      completedSessions =
+          sessions.where((s) => s['is_completed'] == true).length;
+      progress =
+      totalSessions > 0 ? completedSessions / totalSessions : 0;
     });
-
-    try {
-      final resp = await ApiHelper().httpGet("sections/${widget.sectionId}");
-
-      if (resp.statusCode == 200) {
-        final body = json.decode(resp.body);
-        final data =
-        body is Map && body['data'] != null ? body['data'] : body;
-
-        section = Map<String, dynamic>.from(data);
-      } else {
-        isError = true;
-      }
-    } catch (_) {
-      isError = true;
-    }
-
-    if (mounted) setState(() => isLoading = false);
   }
 
-  // =====================================================
-  // START LEARNING → OPEN FIRST SESSION
-  // =====================================================
-  Future<void> _openSessionsDirectly() async {
-    final secId = int.tryParse(
-      section?['section_id']?.toString() ??
-          section?['id']?.toString() ??
-          widget.sectionId ??
-          '',
+  Future<void> startLearning() async {
+    final res = await api.httpGet(
+      'sections/${widget.sectionId}/sessions?user_id=1',
     );
 
-    if (secId == null) return;
+    final decoded = json.decode(res.body);
+    final List sessions = decoded['data'] ?? [];
 
-    final resp = await ApiHelper().httpGet("sections/$secId/sessions");
+    if (sessions.isEmpty) return;
 
-    if (resp.statusCode == 200) {
-      final body = json.decode(resp.body);
-      final list = body['data'] ?? body;
+    final unlocked = sessions.firstWhere(
+          (s) => s['is_locked'] == false,
+      orElse: () => null,
+    );
 
-      if (list is List && list.isNotEmpty) {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (_) => SessionDetailPage(
-              session: Map<String, dynamic>.from(list.first),
-              userId: 1, // TODO: replace with logged-in user id
-              courseId: widget.courseId,
-              subjectId: widget.subjectId,
-              sectionId: secId,
-            ),
-          ),
-        );
-        return;
-      }
+    if (unlocked == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('All sessions are locked')),
+      );
+      return;
     }
-
-    // fallback
-    _openSessionListPage();
-  }
-
-  // =====================================================
-  // VIEW ALL → SESSION LIST PAGE (FINAL & CORRECT)
-  // =====================================================
-  void _openSessionListPage() {
-    final secId = int.tryParse(
-      section?['section_id']?.toString() ??
-          section?['id']?.toString() ??
-          widget.sectionId ??
-          '',
-    );
-
-    if (secId == null) return;
 
     Navigator.push(
       context,
       MaterialPageRoute(
+        builder: (_) => SessionDetailPage(
+          sessionId: unlocked['session_id'], // ✅ PASS ONLY ID
+          userId: 1,
+        ),
+      ),
+    );
+
+  }
+
+  void openAllSessions() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
         builder: (_) => SessionListPage(
-          userId: 1, // TODO: replace with logged-in user id
-          courseId: widget.courseId,
-          subjectId: widget.subjectId,
-          sectionId: secId,
-          sectionName: section?['section_name'],
+          sectionId: widget.sectionId,
+          userId: 1,
         ),
       ),
     );
@@ -131,46 +98,24 @@ class _SectionDetailPageState extends State<SectionDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    if (isError) {
-      return const Scaffold(
-        body: Center(child: Text("Failed to load section")),
-      );
-    }
-
-    final sectionName = section?['section_name'] ?? 'Section';
-    final description = section?['description'] ?? '';
-
     return Scaffold(
-      appBar: AppBar(title: Text(sectionName)),
+      appBar: AppBar(title: const Text('Section Detail')),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(20),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(description, style: const TextStyle(fontSize: 16)),
-            const SizedBox(height: 30),
-
-            // START LEARNING
-            ElevatedButton(
-              onPressed: _openSessionsDirectly,
-              child: const Text("Start Learning"),
-            ),
-
+            LinearProgressIndicator(value: progress),
             const SizedBox(height: 20),
-
-            // VIEW ALL SESSIONS ✅ FIXED
-            TextButton(
-              onPressed: _openSessionListPage,
-              child: const Text(
-                "View All Sessions",
-                style: TextStyle(fontSize: 16),
-              ),
+            Text('$completedSessions / $totalSessions completed'),
+            const SizedBox(height: 30),
+            ElevatedButton(
+              onPressed: startLearning,
+              child: const Text('Start Learning'),
+            ),
+            const SizedBox(height: 10),
+            OutlinedButton(
+              onPressed: openAllSessions,
+              child: const Text('View All Sessions'),
             ),
           ],
         ),
