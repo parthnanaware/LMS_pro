@@ -16,7 +16,7 @@ class _CartPageState extends State<CartPage> {
   bool isLoading = false;
   bool isCheckingOut = false;
   String? userId;
-  final String baseUrl = "https://c1e2ed272a7c.ngrok-free.app";
+  final String baseUrl = "https://82e50f0ae86b.ngrok-free.app";
 
   @override
   void initState() {

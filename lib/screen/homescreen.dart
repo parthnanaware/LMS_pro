@@ -19,7 +19,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const apiBase = "https://c1e2ed272a7c.ngrok-free.app";
+  static const apiBase = "https://82e50f0ae86b.ngrok-free.app";
 
   int _currentIndex = 0;
   int _cartCount = 0;
