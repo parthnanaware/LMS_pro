@@ -28,7 +28,6 @@ class _SessionListPageState extends State<SessionListPage> {
     fetchSessions();
   }
 
-  // ================= FETCH SESSIONS =================
   Future<void> fetchSessions() async {
     setState(() => loading = true);
 
@@ -44,142 +43,104 @@ class _SessionListPageState extends State<SessionListPage> {
     });
   }
 
-  // ================= LOCK MESSAGE =================
-  void showLockedMessage() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('This session is locked'),
-        behavior: SnackBarBehavior.floating,
-      ),
+  // ================= STATUS TEXT =================
+  Widget buildStatus(Map session) {
+    final String type = session['type']?.toString() ?? '';
+    final int isLocked = session['is_locked'] ?? 0;
+    final String pdfStatus =
+    session['pdf_status'] == null ? 'none' : session['pdf_status'];
+
+    // 🎥 VIDEO (ALWAYS UNLOCKED)
+    if (type == 'video') {
+      return const Text(
+        '▶ Video (Always Unlocked)',
+        style: TextStyle(color: Colors.green),
+      );
+    }
+
+    // 📄 OTHER SESSIONS
+    if (isLocked == 0) {
+      return const Text(
+        '🔒 Locked',
+        style: TextStyle(color: Colors.red),
+      );
+    }
+
+    if (pdfStatus == 'pending') {
+      return const Text(
+        '🕒 Waiting for Admin',
+        style: TextStyle(color: Colors.orange),
+      );
+    }
+
+    if (pdfStatus == 'approved') {
+      return const Text(
+        '✅ Approved',
+        style: TextStyle(color: Colors.green),
+      );
+    }
+
+    return const Text(
+      '📄 Upload PDF',
+      style: TextStyle(color: Colors.blue),
     );
   }
 
-  // ================= FLOW BUILDER =================
-  List<Widget> buildFlow(Map session) {
-    // 🔒 LOCKED SESSION
-    if (session['is_locked'] == true) {
-      return const [
-        Text(
-          '🔒 Locked',
-          style: TextStyle(
-            color: Colors.red,
-            fontWeight: FontWeight.w600,
-          ),
+  // ================= TAP LOGIC =================
+  void handleTap(Map session) async {
+    final String type = session['type']?.toString() ?? '';
+    final int isLocked = session['is_locked'] ?? 0;
+
+    // ❌ Block NON-video sessions if locked
+    if (type != 'video' && isLocked == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('This session is locked'),
         ),
-      ];
+      );
+      return;
     }
 
-    final List<Widget> flow = [];
-
-    // 🎥 STEP 1: VIDEO
-    if (session['video_unlocked'] == true) {
-      flow.add(
-        const Text(
-          '✅ Video Completed',
-          style: TextStyle(
-            color: Colors.green,
-            fontWeight: FontWeight.w500,
-          ),
+    // ✅ Allow:
+    // - ALL video sessions
+    // - Other sessions only if unlocked
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => SessionDetailPage(
+          sessionId: session['session_id'],
+          userId: widget.userId,
         ),
-      );
-    } else {
-      flow.add(
-        const Text(
-          '⏳ Watch Video',
-          style: TextStyle(
-            color: Colors.orange,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
+      ),
+    );
 
-      // ⛔ Stop flow until video is completed
-      return flow;
-    }
-
-    // 📄 STEP 2: PDF (ONLY AFTER VIDEO)
-    final String pdfStatus =
-    (session['pdf_status'] ?? 'locked').toString();
-
-    if (pdfStatus == 'approved') {
-      flow.add(
-        const Text(
-          '✅ PDF Approved',
-          style: TextStyle(
-            color: Colors.green,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    } else if (pdfStatus == 'pending') {
-      flow.add(
-        const Text(
-          '🕒 PDF Pending Approval',
-          style: TextStyle(
-            color: Colors.orange,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    } else {
-      flow.add(
-        const Text(
-          '⏳ Upload PDF',
-          style: TextStyle(
-            color: Colors.orange,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-      );
-    }
-
-    return flow;
+    fetchSessions();
   }
 
-  // ================= UI =================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('All Sessions')),
+      appBar: AppBar(title: const Text('Sessions')),
       body: loading
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
         itemCount: sessions.length,
         itemBuilder: (_, index) {
           final session = sessions[index];
-          final bool locked = session['is_locked'] == true;
 
           return Card(
             margin: const EdgeInsets.all(10),
             child: ListTile(
               leading: Icon(
-                locked ? Icons.lock : Icons.lock_open,
-                color: locked ? Colors.red : Colors.green,
+                session['type'] == 'video'
+                    ? Icons.play_circle
+                    : Icons.picture_as_pdf,
+                color: Colors.deepPurple,
               ),
-              title: Text(session['title'] ?? 'Session'),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: buildFlow(session),
-              ),
-              onTap: () async {
-                if (locked) {
-                  showLockedMessage();
-                  return;
-                }
-
-                await Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SessionDetailPage(
-                      sessionId: session['session_id'],
-                      userId: widget.userId,
-                    ),
-                  ),
-                );
-
-                // 🔁 Refresh after returning
-                fetchSessions();
-              },
+              title:
+              Text(session['title']?.toString() ?? 'Session'),
+              subtitle: buildStatus(session),
+              onTap: () => handleTap(session),
             ),
           );
         },

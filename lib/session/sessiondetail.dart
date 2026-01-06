@@ -31,7 +31,6 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
     fetchSession();
   }
 
-  // ================= FETCH SESSION =================
   Future<void> fetchSession() async {
     final res = await api.httpGet(
       'sessions/${widget.sessionId}?user_id=${widget.userId}',
@@ -45,7 +44,7 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
     });
   }
 
-  // ================= UPLOAD PDF =================
+  // 📄 PDF UPLOAD (FOR ALL SESSION TYPES)
   Future<void> uploadPdf() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -66,50 +65,40 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
     );
 
     setState(() => uploading = false);
-
-    fetchSession(); // 🔁 refresh status
+    fetchSession();
   }
 
   @override
   Widget build(BuildContext context) {
-    if (loading) {
+    if (loading || session == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    if (session == null) {
-      return const Scaffold(
-        body: Center(child: Text('Failed to load session')),
-      );
-    }
-
-    final bool videoDone = session!['video_unlocked'] == true;
-    final String pdfStatus = session!['pdf_status'] ?? 'locked';
+    final String type = session?['type']?.toString() ?? '';
+    final String title = session?['title']?.toString() ?? 'Session';
+    final String pdfStatus =
+    session?['pdf_status'] == null ? 'locked' : session!['pdf_status'].toString();
 
     return Scaffold(
-      appBar: AppBar(title: Text(session!['title'] ?? 'Session')),
+      appBar: AppBar(title: Text(title)),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // 🎥 VIDEO
-            Expanded(
-              child: YoutubePlayerPage(
-                videoUrl: session!['video'],
+            // 🎥 VIDEO PLAYER
+            if (type == 'video') ...[
+              Expanded(
+                child: YoutubePlayerPage(
+                  videoUrl: session?['video']?.toString() ?? '',
+                ),
               ),
-            ),
+              const SizedBox(height: 20),
+            ],
 
-            const SizedBox(height: 20),
-
-            // 📄 PDF FLOW
-            if (!videoDone)
-              const Text(
-                'Complete video to unlock PDF upload',
-                style: TextStyle(color: Colors.orange),
-              ),
-
-            if (videoDone && pdfStatus == 'locked')
+            // 📄 PDF ACTIONS (VIDEO + ALL)
+            if (pdfStatus == 'locked')
               ElevatedButton(
                 onPressed: uploading ? null : uploadPdf,
                 child: Text(uploading ? 'Uploading...' : 'Upload PDF'),
@@ -117,13 +106,13 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
 
             if (pdfStatus == 'pending')
               const Text(
-                'PDF submitted. Waiting for admin approval',
+                '🕒 PDF sent to admin, waiting for approval',
                 style: TextStyle(color: Colors.orange),
               ),
 
             if (pdfStatus == 'approved')
               const Text(
-                'PDF approved. Session completed ✅',
+                '✅ PDF Approved',
                 style: TextStyle(color: Colors.green),
               ),
           ],
