@@ -53,7 +53,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     }
 
     setState(() => _isLoading = true);
-    await Future.delayed(Duration(seconds: 2)); // Simulate signup delay
+    await Future.delayed(Duration(seconds: 2));
     setState(() => _isLoading = false);
 
     ScaffoldMessenger.of(context).showSnackBar(
@@ -89,10 +89,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
           child: SingleChildScrollView(
             child: Column(
               children: [
-                // Top decorative wave
                 _buildTopWave(),
 
-                // Main content container
                 Container(
                   margin: EdgeInsets.all(20),
                   padding: EdgeInsets.all(32),
@@ -110,23 +108,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Logo and Title
                       _buildHeader(),
                       SizedBox(height: 40),
 
-                      // Form Fields
                       _buildSignUpForm(),
                       SizedBox(height: 30),
 
-                      // Sign Up Button
                       _buildSignUpButton(),
                       SizedBox(height: 25),
 
-                      // Divider
                       _buildDivider(),
                       SizedBox(height: 25),
 
-                      // Login Section
                       _buildLoginSection(),
                     ],
                   ),
@@ -233,7 +226,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
   Widget _buildSignUpForm() {
     return Column(
       children: [
-        // Name Field
         Container(
           margin: EdgeInsets.only(bottom: 20),
           child: Column(
@@ -274,7 +266,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
 
-        // Email Field
         Container(
           margin: EdgeInsets.only(bottom: 20),
           child: Column(
@@ -316,7 +307,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
 
-        // Password Field
         Container(
           margin: EdgeInsets.only(bottom: 20),
           child: Column(
@@ -371,7 +361,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
 
-        // Confirm Password Field
         Container(
           margin: EdgeInsets.only(bottom: 16),
           child: Column(
@@ -426,7 +415,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
           ),
         ),
 
-        // Password requirements
         Container(
           padding: EdgeInsets.all(12),
           decoration: BoxDecoration(

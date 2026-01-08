@@ -23,7 +23,6 @@ class _WebViewPageState extends State<WebViewPage> {
   Widget build(BuildContext context) {
     final uri = Uri.tryParse(widget.url);
 
-    // ❌ Invalid link
     if (uri == null || (!uri.hasScheme)) {
       return Scaffold(
         appBar: AppBar(title: Text(widget.title)),
@@ -32,7 +31,6 @@ class _WebViewPageState extends State<WebViewPage> {
       );
     }
 
-    // ✅ Open PDF Viewer if link ends with .pdf
     if (widget.url.toLowerCase().endsWith(".pdf")) {
       return PdfViewerPage(
         pdfUrl: widget.url,
@@ -40,7 +38,6 @@ class _WebViewPageState extends State<WebViewPage> {
       );
     }
 
-    // 🌐 Normal WebView
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
       body: Stack(

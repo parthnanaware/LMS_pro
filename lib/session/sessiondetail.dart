@@ -44,7 +44,6 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
     });
   }
 
-  // 📄 PDF UPLOAD (FOR ALL SESSION TYPES)
   Future<void> uploadPdf() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -87,7 +86,6 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // 🎥 VIDEO PLAYER
             if (type == 'video') ...[
               Expanded(
                 child: YoutubePlayerPage(
@@ -97,7 +95,6 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
               const SizedBox(height: 20),
             ],
 
-            // 📄 PDF ACTIONS (VIDEO + ALL)
             if (pdfStatus == 'locked')
               ElevatedButton(
                 onPressed: uploading ? null : uploadPdf,

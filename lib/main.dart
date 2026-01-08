@@ -4,13 +4,11 @@ import 'package:lms_pro/screen/homescreen.dart';
 import 'package:lms_pro/screen/splashscreen.dart';
 import 'package:lms_pro/singin/login.dart';
 
-// GLOBAL THEME NOTIFIER
 ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Load saved theme only
   final prefs = await SharedPreferences.getInstance();
   bool isDark = prefs.getBool("dark_mode") ?? false;
   themeNotifier.value = isDark ? ThemeMode.dark : ThemeMode.light;
@@ -21,7 +19,6 @@ Future<void> main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  // GLOBAL THEME SETTER
   static Future<void> setTheme(bool isDark) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool("dark_mode", isDark);
@@ -38,7 +35,6 @@ class MyApp extends StatelessWidget {
           title: 'Student LMS',
           themeMode: mode,
 
-          // LIGHT THEME
           theme: ThemeData(
             brightness: Brightness.light,
             scaffoldBackgroundColor: const Color(0xFFF8F7FF),
@@ -50,7 +46,6 @@ class MyApp extends StatelessWidget {
             useMaterial3: true,
           ),
 
-          // DARK THEME
           darkTheme: ThemeData(
             brightness: Brightness.dark,
             scaffoldBackgroundColor: const Color(0xFF0F0A19),
@@ -63,7 +58,6 @@ class MyApp extends StatelessWidget {
             useMaterial3: true,
           ),
 
-          // ROUTES
           routes: {
             '/onboarding': (context) => OnboardingScreen(),
             '/login': (context) => LoginPage(),

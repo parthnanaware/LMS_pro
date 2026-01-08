@@ -126,7 +126,6 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
         ),
         child: Row(
           children: [
-            // Icon/Image Container
             Container(
               width: 80,
               height: 100,
@@ -165,7 +164,6 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Subject header with number
                     Row(
                       children: [
                         Container(
@@ -194,7 +192,6 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
 
                     SizedBox(height: 10),
 
-                    // Subject name
                     Text(
                       subject["subject_name"] ?? "Subject",
                       style: TextStyle(
@@ -208,7 +205,6 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
 
                     SizedBox(height: 6),
 
-                    // Description
                     Text(
                       subject["description"] ?? "No description available",
                       style: TextStyle(
@@ -222,7 +218,6 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
 
                     SizedBox(height: 12),
 
-                    // Topics count
                     Row(
                       children: [
                         Container(
@@ -305,7 +300,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
           _buildStatItem(
             context,
             IconsaxPlusLinear.clock,
-            "48",
+            "1.5",
             "Hours",
           ),
           Container(height: 30, width: 1, color: isDarkMode ? Colors.grey[800] : Colors.grey[200]),

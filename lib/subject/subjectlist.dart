@@ -140,7 +140,6 @@ class _SubjectListPageState extends State<SubjectListPage> {
 
                 const SizedBox(width: 16),
 
-                // Subject Details
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -172,7 +171,6 @@ class _SubjectListPageState extends State<SubjectListPage> {
 
                 const SizedBox(width: 12),
 
-                // Arrow Icon
                 Icon(
                   Icons.arrow_forward_ios_rounded,
                   size: 16,

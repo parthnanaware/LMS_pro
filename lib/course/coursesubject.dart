@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 /// 🔥 SINGLE API SOURCE  remove https://
-const String API_HOST = "82e50f0ae86b.ngrok-free.app";
+const String API_HOST = "abcf1818992c.ngrok-free.app";
 
 class CourseSubjectPage extends StatefulWidget {
   final String courseId;

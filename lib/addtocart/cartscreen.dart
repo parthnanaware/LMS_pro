@@ -16,7 +16,7 @@ class _CartPageState extends State<CartPage> {
   bool isLoading = false;
   bool isCheckingOut = false;
   String? userId;
-  final String baseUrl = "https://82e50f0ae86b.ngrok-free.app";
+  final String baseUrl = "https://abcf1818992c.ngrok-free.app";
 
   @override
   void initState() {
@@ -47,7 +47,7 @@ class _CartPageState extends State<CartPage> {
         }
       }
     } catch (e) {
-      print("❌ Cart Fetch Error: $e");
+      print(" Cart Fetch Error: $e");
     }
     setState(() => isLoading = false);
   }
@@ -61,7 +61,7 @@ class _CartPageState extends State<CartPage> {
         _showSnackBar("Item removed from cart", Colors.red);
       }
     } catch (e) {
-      print("❌ Remove Cart Error: $e");
+      print("Remove Cart Error: $e");
     }
   }
 

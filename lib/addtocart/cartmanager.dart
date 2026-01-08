@@ -4,9 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 class CartManager {
   static const String _cartKey = "my_cart";
 
-  // =============================
-  // LOAD CART
-  // =============================
+
   static Future<List<Map<String, dynamic>>> getCart() async {
     final prefs = await SharedPreferences.getInstance();
     final String? data = prefs.getString(_cartKey);
@@ -20,18 +18,14 @@ class CartManager {
         .toList();
   }
 
-  // =============================
-  // SAVE CART (PRIVATE)
-  // =============================
+
   static Future<void> _saveCart(
       List<Map<String, dynamic>> cart) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_cartKey, jsonEncode(cart));
   }
 
-  // =============================
-  // ADD TO CART (NO DUPLICATES)
-  // =============================
+
   static Future<void> addToCart(
       Map<String, dynamic> course) async {
     final cart = await getCart();
@@ -51,9 +45,6 @@ class CartManager {
     }
   }
 
-  // =============================
-  // REMOVE FROM CART
-  // =============================
   static Future<void> removeFromCart(String courseId) async {
     final cart = await getCart();
 
@@ -66,17 +57,12 @@ class CartManager {
     await _saveCart(cart);
   }
 
-  // =============================
-  // CLEAR CART (AFTER CHECKOUT)
-  // =============================
   static Future<void> clearCart() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_cartKey);
   }
 
-  // =============================
-  // CHECK IF COURSE IN CART
-  // =============================
+
   static Future<bool> isInCart(String courseId) async {
     final cart = await getCart();
     return cart.any((item) {

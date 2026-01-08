@@ -118,7 +118,6 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
             padding: const EdgeInsets.all(20),
             child: Row(
               children: [
-                // PROGRESS
                 SizedBox(
                   width: 48,
                   height: 48,
@@ -133,7 +132,6 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
 
                 const SizedBox(width: 16),
 
-                // CONTENT
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,9 +177,6 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
     );
   }
 
-  // =========================
-  // HEADER
-  // =========================
   Widget _buildHeader(BuildContext context) {
     final subjectColor = _getSubjectColor();
     final theme = Theme.of(context);
@@ -215,7 +210,6 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
           ),
           const SizedBox(height: 20),
 
-          /// 🔥 OVERFLOW FIX
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
@@ -257,9 +251,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
     );
   }
 
-  // =========================
-  // CALCULATIONS
-  // =========================
+
   String _calculateTotalDuration() {
     int totalMinutes = 0;
     for (var s in _sections) {

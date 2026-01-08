@@ -26,7 +26,6 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     );
 
-    // Smoother animations with better timing
     _scaleAnimation = TweenSequence<double>([
       TweenSequenceItem(tween: Tween<double>(begin: 0.4, end: 1.05), weight: 40),
       TweenSequenceItem(tween: Tween<double>(begin: 1.05, end: 1.0), weight: 60),
@@ -72,7 +71,6 @@ class _SplashScreenState extends State<SplashScreen>
       _controller.forward();
     });
 
-    // Navigate to next screen
     Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
       Navigator.pushReplacement(
