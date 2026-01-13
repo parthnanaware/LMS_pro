@@ -1,6 +1,7 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:lms_pro/singin/register_page.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
@@ -282,7 +283,7 @@ class _LoginPageState extends State<LoginPage> {
   bool isLoading = false;
   bool obscurePassword = true;
 
-  final String apiUrl = 'https://abcf1818992c.ngrok-free.app/api/student/login';
+  final String apiUrl = 'https://9dbee0c9f126.ngrok-free.app/api/student/login';
 
 
   Future<void> loginUser() async {
@@ -722,21 +723,26 @@ class _LoginPageState extends State<LoginPage> {
             color: Colors.grey.shade600,
             fontSize: 14,
             fontWeight: FontWeight.w500,
-          ),
-          children: [
-            TextSpan(
-              text: 'Sign Up',
-              style: TextStyle(
-                color: Color(0xFF667EEA),
-                fontWeight: FontWeight.bold,
-                decoration: TextDecoration.underline,
-              ),
-              recognizer: TapGestureRecognizer()
-                ..onTap = () {
-                  _showSnackBar('Sign up feature coming soon!', Color(0xFF667EEA));
-                },
+          ),children: [
+          TextSpan(
+            text: 'Sign Up',
+            style: const TextStyle(
+              color: Color(0xFF667EEA),
+              fontWeight: FontWeight.bold,
+              decoration: TextDecoration.underline,
             ),
-          ],
+            recognizer: TapGestureRecognizer()
+              ..onTap = () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => const RegisterPage(),
+                  ),
+                );
+              },
+          ),
+        ],
+
         ),
       ),
     );

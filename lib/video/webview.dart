@@ -1,61 +1,41 @@
+// lib/pdf/pdfviewer.dart
 import 'package:flutter/material.dart';
-import 'package:lms_pro/pdf/pdfviwer.dart';
-import 'package:webview_flutter/webview_flutter.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 
-class WebViewPage extends StatefulWidget {
-  final String url;
+class PdfViewerPage extends StatefulWidget {
+  final String pdfUrl;
   final String title;
 
-  const WebViewPage({
+  const PdfViewerPage({
     super.key,
-    required this.url,
-    this.title = "Resource",
+    required this.pdfUrl,
+    this.title = 'PDF Viewer',
   });
 
   @override
-  State<WebViewPage> createState() => _WebViewPageState();
+  State<PdfViewerPage> createState() => _PdfViewerPageState();
 }
 
-class _WebViewPageState extends State<WebViewPage> {
-  bool _isLoading = true;
+class _PdfViewerPageState extends State<PdfViewerPage> {
+  final GlobalKey<SfPdfViewerState> _pdfViewerKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
-    final uri = Uri.tryParse(widget.url);
-
-    if (uri == null || (!uri.hasScheme)) {
-      return Scaffold(
-        appBar: AppBar(title: Text(widget.title)),
-        body: const Center(
-            child: Text("Invalid URL", style: TextStyle(color: Colors.red))),
-      );
-    }
-
-    if (widget.url.toLowerCase().endsWith(".pdf")) {
-      return PdfViewerPage(
-        pdfUrl: widget.url,
-        title: widget.title,
-      );
-    }
-
     return Scaffold(
-      appBar: AppBar(title: Text(widget.title)),
-      body: Stack(
-        children: [
-          WebViewWidget(
-            controller: WebViewController()
-              ..setJavaScriptMode(JavaScriptMode.unrestricted)
-              ..setBackgroundColor(const Color(0x00000000))
-              ..setNavigationDelegate(
-                NavigationDelegate(
-                  onPageFinished: (_) => setState(() => _isLoading = false),
-                ),
-              )
-              ..loadRequest(uri),
+      appBar: AppBar(
+        title: Text(widget.title),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.bookmark),
+            onPressed: () {
+              _pdfViewerKey.currentState?.openBookmarkView();
+            },
           ),
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator()),
         ],
+      ),
+      body: SfPdfViewer.network(
+        widget.pdfUrl,
+        key: _pdfViewerKey,
       ),
     );
   }

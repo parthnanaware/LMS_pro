@@ -21,6 +21,7 @@ class _SessionListPageState extends State<SessionListPage> {
   final ApiHelper api = ApiHelper();
   bool loading = true;
   List sessions = [];
+
   late ColorScheme _colors;
   late ThemeData _theme;
 
@@ -28,6 +29,13 @@ class _SessionListPageState extends State<SessionListPage> {
   void initState() {
     super.initState();
     fetchSessions();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _theme = Theme.of(context);
+    _colors = _theme.colorScheme;
   }
 
   Future<void> fetchSessions() async {
@@ -45,138 +53,59 @@ class _SessionListPageState extends State<SessionListPage> {
     });
   }
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _theme = Theme.of(context);
-    _colors = _theme.colorScheme;
+  // ===== SEQUENTIAL UNLOCK LOGIC =====
+  bool isSessionUnlocked(int index) {
+    if (index == 0) return true; // first always open
+
+    final prev = sessions[index - 1];
+    final String prevType = prev['type']?.toString() ?? '';
+    final String prevStatus = prev['pdf_status']?.toString() ?? '';
+
+    if (prevType == 'video') return true;
+    return prevStatus == 'approved';
   }
 
-  Widget buildStatus(Map session) {
-    final String type = session['type']?.toString() ?? '';
-    final int isLocked = session['is_locked'] ?? 0;
-    final String pdfStatus =
-    session['pdf_status'] == null ? 'none' : session['pdf_status'];
+  // ================= STATUS UI =================
 
-    // 🎥 VIDEO (ALWAYS UNLOCKED)
+  Widget buildStatus(Map session, int index) {
+    final String type = session['type']?.toString() ?? '';
+    final String pdfStatus = session['pdf_status']?.toString() ?? '';
+    final bool unlocked = isSessionUnlocked(index) || type == 'video';
+
     if (type == 'video') {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: _colors.primary.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.videocam, size: 14, color: _colors.primary),
-            const SizedBox(width: 4),
-            Text(
-              'Video Session',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: _colors.primary,
-              ),
-            ),
-          ],
-        ),
-      );
+      return _chip(Icons.videocam, 'Video Session', _colors.primary);
     }
 
-    if (isLocked == 0) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.red.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.lock, size: 14, color: Colors.red),
-            const SizedBox(width: 4),
-            Text(
-              'Locked',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.red,
-              ),
-            ),
-          ],
-        ),
-      );
+    if (!unlocked) {
+      return _chip(Icons.lock, 'Locked', Colors.red);
     }
 
     if (pdfStatus == 'pending') {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.orange.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.hourglass_empty, size: 14, color: Colors.orange[700]),
-            const SizedBox(width: 4),
-            Text(
-              'Pending Review',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.orange[700],
-              ),
-            ),
-          ],
-        ),
-      );
+      return _chip(Icons.hourglass_empty, 'Pending Review', Colors.orange);
     }
 
     if (pdfStatus == 'approved') {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        decoration: BoxDecoration(
-          color: Colors.green.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.check_circle, size: 14, color: Colors.green),
-            const SizedBox(width: 4),
-            Text(
-              'Approved',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: Colors.green,
-              ),
-            ),
-          ],
-        ),
-      );
+      return _chip(Icons.check_circle, 'Approved', Colors.green);
     }
 
+    return _chip(Icons.upload_file, 'Upload PDF', Colors.blue);
+  }
+
+  Widget _chip(IconData icon, String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.blue.withOpacity(0.1),
+        color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.upload_file, size: 14, color: Colors.blue),
+          Icon(icon, size: 14, color: color),
           const SizedBox(width: 4),
           Text(
-            'Upload PDF',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: Colors.blue,
-            ),
+            text,
+            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: color),
           ),
         ],
       ),
@@ -184,20 +113,21 @@ class _SessionListPageState extends State<SessionListPage> {
   }
 
   // ================= TAP LOGIC =================
-  void handleTap(Map session) async {
-    final String type = session['type']?.toString() ?? '';
-    final int isLocked = session['is_locked'] ?? 0;
 
-    if (type != 'video' && isLocked == 0) {
+  void handleTap(Map session, int index) async {
+    final String type = session['type']?.toString() ?? '';
+    final bool unlocked = isSessionUnlocked(index) || type == 'video';
+
+    if (!unlocked && type != 'video') {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Row(
-            children: [
+            children: const [
               Icon(Icons.lock, color: Colors.white),
               SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  'This session is locked. Complete previous sessions to unlock.',
+                  'Complete the previous session first.',
                   style: TextStyle(fontWeight: FontWeight.w500),
                 ),
               ),
@@ -205,14 +135,11 @@ class _SessionListPageState extends State<SessionListPage> {
           ),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ),
       );
       return;
     }
-
 
     await Navigator.push(
       context,
@@ -227,10 +154,11 @@ class _SessionListPageState extends State<SessionListPage> {
     fetchSessions();
   }
 
+  // ================= CARD UI =================
+
   Widget _buildSessionCard(Map session, int index) {
     final String type = session['type']?.toString() ?? '';
-    final int isLocked = session['is_locked'] ?? 0;
-    final bool isUnlocked = type == 'video' || isLocked == 1;
+    final bool isUnlocked = isSessionUnlocked(index) || type == 'video';
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -239,7 +167,7 @@ class _SessionListPageState extends State<SessionListPage> {
         color: isUnlocked ? Colors.white : Colors.grey[50],
         elevation: isUnlocked ? 2 : 0,
         child: InkWell(
-          onTap: () => handleTap(session),
+          onTap: () => handleTap(session, index),
           borderRadius: BorderRadius.circular(16),
           child: Container(
             padding: const EdgeInsets.all(16),
@@ -249,7 +177,6 @@ class _SessionListPageState extends State<SessionListPage> {
                 color: isUnlocked
                     ? Colors.grey.withOpacity(0.2)
                     : Colors.grey.withOpacity(0.1),
-                width: 1,
               ),
             ),
             child: Row(
@@ -299,9 +226,8 @@ class _SessionListPageState extends State<SessionListPage> {
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.grey[800],
-                                decoration: isUnlocked
-                                    ? TextDecoration.none
-                                    : TextDecoration.lineThrough,
+                                decoration:
+                                isUnlocked ? TextDecoration.none : TextDecoration.lineThrough,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -310,7 +236,7 @@ class _SessionListPageState extends State<SessionListPage> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      buildStatus(session),
+                      buildStatus(session, index),
                     ],
                   ),
                 ),
@@ -328,60 +254,22 @@ class _SessionListPageState extends State<SessionListPage> {
     );
   }
 
+  // ================= PAGE =================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Course Sessions',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+        title: const Text('Course Sessions', style: TextStyle(fontWeight: FontWeight.w600)),
         centerTitle: true,
         backgroundColor: _colors.primary,
         foregroundColor: Colors.white,
         elevation: 2,
       ),
       body: loading
-          ? const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(),
-            SizedBox(height: 16),
-            Text(
-              'Loading sessions...',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-      )
+          ? const Center(child: CircularProgressIndicator())
           : sessions.isEmpty
-          ? Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.video_library_outlined,
-              size: 80,
-              color: Colors.grey[300],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No sessions available',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Check back later for new content',
-              style: TextStyle(color: Colors.grey[500]),
-            ),
-          ],
-        ),
-      )
+          ? const Center(child: Text('No sessions available'))
           : Column(
         children: [
           Container(
@@ -396,20 +284,15 @@ class _SessionListPageState extends State<SessionListPage> {
               children: [
                 Icon(Icons.info_outline, color: _colors.primary),
                 const SizedBox(width: 12),
-                Expanded(
+                const Expanded(
                   child: Text(
                     'Complete sessions sequentially to unlock more content',
-                    style: TextStyle(
-                      color: Colors.grey[700],
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(fontSize: 13),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
-
           Expanded(
             child: RefreshIndicator(
               onRefresh: fetchSessions,

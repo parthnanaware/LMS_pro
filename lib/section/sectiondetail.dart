@@ -454,16 +454,11 @@ class _SectionDetailPageState extends State<SectionDetailPage> {
 
               Column(
                 children: [
-                  _buildActionButton(
-                    Icons.play_arrow_rounded,
-                    'Continue Learning',
-                    startLearning,
-                    const Color(0xFF667eea),
-                  ),
+
                   const SizedBox(height: 12),
                   _buildActionButton(
                     Icons.list_alt_rounded,
-                    'View All Sessions',
+                    'All Sessions',
                     openAllSessions,
                     Colors.grey.shade800, // Fixed: use .shade800
                   ),

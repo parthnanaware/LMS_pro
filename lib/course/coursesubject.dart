@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
-/// 🔥 SINGLE API SOURCE  remove https://
-const String API_HOST = "abcf1818992c.ngrok-free.app";
+import 'subject_section_page.dart';
+
+/// 🔥 SINGLE API SOURCE (without https://)
+const String API_HOST = "9dbee0c9f126.ngrok-free.app";
 
 class CourseSubjectPage extends StatefulWidget {
   final String courseId;
@@ -61,68 +63,84 @@ class _CourseSubjectPageState extends State<CourseSubjectPage> {
   }
 
   Widget subjectCard(Map s) {
-    final imageUrl =
-    (s["subject_img"] != null && s["subject_img"].toString().isNotEmpty)
-        ? s["subject_img"]
-        : "https://via.placeholder.com/65";
+    final subjectId = (s["subject_id"] ?? s["id"]).toString();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 12),
-        ],
-      ),
-      child: Row(
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Image.network(
-              imageUrl,
-              width: 65,
-              height: 65,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-              const Icon(Icons.image_not_supported),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => SubjectSectionPage(
+              subjectId: subjectId,
+              subjectName: s["subject_name"] ?? "Subject",
             ),
           ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  s["subject_name"] ?? "Subject",
-                  style: const TextStyle(
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 14),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: isDark
+              ? []
+              : const [
+            BoxShadow(color: Colors.black12, blurRadius: 10),
+          ],
+        ),
+        child: Row(
+          children: [
+            Icon(
+              Icons.book,
+              size: 28,
+              color: isDark ? Colors.deepPurpleAccent : Colors.deepPurple,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    s["subject_name"] ?? "Subject",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isDark ? Colors.white : Colors.black,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  s["description"] ?? "",
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Text(
+                    s["description"] ?? "",
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const Icon(Icons.arrow_forward_ios, size: 16),
-        ],
+            Icon(
+              Icons.arrow_forward_ios,
+              size: 14,
+              color: isDark ? Colors.white54 : Colors.black54,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Scaffold(
-      backgroundColor: const Color(0xfff5f5f5),
+      backgroundColor: isDark ? const Color(0xFF121212) : const Color(0xfff5f5f5),
       appBar: AppBar(
         title: const Text("Course Subjects"),
-        backgroundColor: Colors.deepPurple,
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())

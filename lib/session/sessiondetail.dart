@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:lms_pro/ApiHelper/apihelper.dart';
-import 'package:lms_pro/video/videoplayer.dart';
+import 'package:lms_pro/pdf/pdfviwer.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 
 class SessionDetailPage extends StatefulWidget {
   final int sessionId;
@@ -25,6 +26,8 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
   bool uploading = false;
   Map<String, dynamic>? session;
 
+  YoutubePlayerController? _videoController;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +43,22 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
 
     setState(() {
       session = decoded['data'];
+
+      if (session?['type'] == 'video') {
+        final videoUrl = session?['video']?.toString() ?? '';
+        final videoId = YoutubePlayer.convertUrlToId(videoUrl);
+
+        if (videoId != null && videoId.isNotEmpty) {
+          _videoController = YoutubePlayerController(
+            initialVideoId: videoId,
+            flags: const YoutubePlayerFlags(
+              autoPlay: false,
+              mute: false,
+            ),
+          );
+        }
+      }
+
       loading = false;
     });
   }
@@ -68,6 +87,12 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
   }
 
   @override
+  void dispose() {
+    _videoController?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (loading || session == null) {
       return const Scaffold(
@@ -77,8 +102,16 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
 
     final String type = session?['type']?.toString() ?? '';
     final String title = session?['title']?.toString() ?? 'Session';
-    final String pdfStatus =
-    session?['pdf_status'] == null ? 'locked' : session!['pdf_status'].toString();
+    final String pdfStatus = session?['pdf_status']?.toString() ?? '';
+    final String pdfUrl = session?['pdf_url']?.toString() ?? '';
+
+    // If PDF is approved, open viewer directly
+    if (type != 'video' && pdfStatus == 'approved' && pdfUrl.isNotEmpty) {
+      return PdfViewerPage(
+        pdfUrl: pdfUrl,
+        title: title,
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(title)),
@@ -86,31 +119,50 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            if (type == 'video') ...[
-              Expanded(
-                child: YoutubePlayerPage(
-                  videoUrl: session?['video']?.toString() ?? '',
+            // VIDEO PLAYER
+            if (type == 'video' && _videoController != null)
+              Container(
+                height: 250,
+                margin: const EdgeInsets.only(bottom: 16),
+                child: YoutubePlayer(
+                  controller: _videoController!,
+                  showVideoProgressIndicator: true,
                 ),
               ),
-              const SizedBox(height: 20),
-            ],
 
-            if (pdfStatus == 'locked')
-              ElevatedButton(
-                onPressed: uploading ? null : uploadPdf,
-                child: Text(uploading ? 'Uploading...' : 'Upload PDF'),
+            // CONTENT
+            if (session?['content'] != null &&
+                session!['content'].toString().isNotEmpty)
+              Expanded(
+                child: SingleChildScrollView(
+                  child: Text(
+                    session!['content'].toString(),
+                    style: const TextStyle(fontSize: 15, height: 1.5),
+                  ),
+                ),
               ),
 
-            if (pdfStatus == 'pending')
-              const Text(
-                '🕒 PDF sent to admin, waiting for approval',
-                style: TextStyle(color: Colors.orange),
-              ),
-
-            if (pdfStatus == 'approved')
-              const Text(
-                '✅ PDF Approved',
-                style: TextStyle(color: Colors.green),
+            // PDF INFO
+            if (type != 'video')
+              Padding(
+                padding: const EdgeInsets.only(top: 16),
+                child: Column(
+                  children: [
+                    if (pdfStatus == 'pending')
+                      const Text(
+                        'Your PDF is under review ⏳',
+                        style: TextStyle(color: Colors.orange),
+                      ),
+                    if (pdfStatus != 'approved')
+                      ElevatedButton.icon(
+                        onPressed: uploading ? null : uploadPdf,
+                        icon: const Icon(Icons.upload_file),
+                        label: Text(
+                          uploading ? 'Uploading...' : 'Upload PDF',
+                        ),
+                      ),
+                  ],
+                ),
               ),
           ],
         ),
