@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:razorpay_flutter/razorpay_flutter.dart';
 
 class CartPage extends StatefulWidget {
   const CartPage({super.key});
@@ -16,11 +17,17 @@ class _CartPageState extends State<CartPage> {
   bool isLoading = false;
   bool isCheckingOut = false;
   String? userId;
+  late Razorpay _razorpay;
   final String baseUrl = "https://9dbee0c9f126.ngrok-free.app";
 
   @override
   void initState() {
     super.initState();
+
+    _razorpay = Razorpay();
+    _razorpay.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handleSuccess);
+    _razorpay.on(Razorpay.EVENT_PAYMENT_ERROR, _handleError);
+    _razorpay.on(Razorpay.EVENT_EXTERNAL_WALLET, _handleWallet);
     loadUserId();
   }
 
@@ -31,7 +38,12 @@ class _CartPageState extends State<CartPage> {
       loadCart();
     }
   }
+@override
+void dispose(){
+    super.dispose();
+    _razorpay.clear();
 
+}
   Future<void> loadCart() async {
     if (userId == null) return;
     setState(() => isLoading = true);
@@ -64,29 +76,123 @@ class _CartPageState extends State<CartPage> {
       print("Remove Cart Error: $e");
     }
   }
-
   Future<void> checkout() async {
     if (userId == null) return;
-    setState(() => isCheckingOut = true);
-    final url = "$baseUrl/api/place-order/$userId";
+
+    final url = "$baseUrl/api/create-order/$userId";
+
     try {
-      final response = await http.post(Uri.parse(url));
-      final jsonBody = jsonDecode(response.body);
-      if (response.statusCode == 200 && jsonBody["status"] == "success") {
-        setState(() {
-          cart.clear();
-          isCheckingOut = false;
-        });
-        _showSnackBar("Order placed successfully! 🎉", Colors.green);
-      } else {
-        setState(() => isCheckingOut = false);
-        _showSnackBar(jsonBody["message"] ?? "Checkout failed", Colors.red);
+      final response = await http.get(Uri.parse(url));
+
+      if (!handleStatus(response)) return;
+
+      final jsonBody = safeJsonDecode(response);
+      if (jsonBody == null) return;
+
+      if (jsonBody['status'] != 'success') {
+        _showSnackBar(jsonBody['message'] ?? "Unable to start payment", Colors.red);
+        return;
       }
+
+      var options = {
+        'key': jsonBody['key'],
+        'amount': jsonBody['amount'],
+        'name': 'LMS Pro',
+        'order_id': jsonBody['order_id'],
+      };
+
+      _razorpay.open(options);
     } catch (e) {
-      setState(() => isCheckingOut = false);
-      _showSnackBar("Error: $e", Colors.red);
+      _showSnackBar("Network error: $e", Colors.red);
     }
   }
+
+
+
+  void _handleSuccess(PaymentSuccessResponse res) async {
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/api/verify-payment"),
+        body: {
+          'user_id': userId!,
+          'razorpay_payment_id': res.paymentId!,
+          'razorpay_order_id': res.orderId!,
+          'razorpay_signature': res.signature!,
+        },
+      );
+
+      if (!handleStatus(response)) return;
+
+      final jsonBody = safeJsonDecode(response);
+      if (jsonBody == null) return;
+
+      if (jsonBody['status'] == 'success') {
+        loadCart();
+        _showSnackBar("Payment Successful 🎉", Colors.green);
+      } else {
+        _showSnackBar(jsonBody['message'] ?? "Verification failed", Colors.red);
+      }
+    } catch (e) {
+      _showSnackBar("Verification error: $e", Colors.red);
+    }
+  }
+
+
+  void _handleError(PaymentFailureResponse res) {
+    _showSnackBar("Payment Failed", Colors.red);
+  }
+
+  void _handleWallet(ExternalWalletResponse res) {}
+
+  Map<String, dynamic>? safeJsonDecode(http.Response response) {
+    if (response.body.trim().isEmpty) {
+      _showSnackBar("Empty server response", Colors.red);
+      return null;
+    }
+
+    if (!response.body.trim().startsWith('{')) {
+      _showSnackBar("Invalid response from server", Colors.red);
+      return null;
+    }
+
+    try {
+      return jsonDecode(response.body);
+    } catch (e) {
+      _showSnackBar("JSON parse error", Colors.red);
+      return null;
+    }
+  }
+
+  bool handleStatus(http.Response response) {
+    switch (response.statusCode) {
+      case 200:
+        return true;
+      case 400:
+        _showSnackBar("Bad request", Colors.red);
+        break;
+      case 401:
+        _showSnackBar("Unauthorized. Please login again.", Colors.red);
+        break;
+      case 403:
+        _showSnackBar("Access denied", Colors.red);
+        break;
+      case 404:
+        _showSnackBar("API not found", Colors.red);
+        break;
+      case 422:
+        _showSnackBar("Validation failed", Colors.red);
+        break;
+      case 500:
+        _showSnackBar("Server error", Colors.red);
+        break;
+      default:
+        _showSnackBar("Error ${response.statusCode}", Colors.red);
+    }
+    return false;
+  }
+
+
+
 
   void _showSnackBar(String message, Color color) {
     ScaffoldMessenger.of(context).showSnackBar(
