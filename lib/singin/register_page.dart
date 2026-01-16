@@ -50,7 +50,7 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => loading = true);
 
     final uri =
-    Uri.parse('https://9dbee0c9f126.ngrok-free.app/api/register');
+    Uri.parse('https://f71ed3300e16.ngrok-free.app/api/register');
 
     final request = http.MultipartRequest('POST', uri);
     request.headers['Accept'] = 'application/json';

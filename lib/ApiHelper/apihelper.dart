@@ -5,7 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiHelper {
   static const String baseUrl =
-      "https://9dbee0c9f126.ngrok-free.app/api/";
+      "https://f71ed3300e16.ngrok-free.app/api/";
 
   // ---------------------- COMMON HEADERS ----------------------
   Future<Map<String, String>> _headers() async {

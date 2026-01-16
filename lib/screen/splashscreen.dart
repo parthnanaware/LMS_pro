@@ -66,7 +66,6 @@ class _SplashScreenState extends State<SplashScreen>
       curve: const Interval(0.6, 1.0, curve: Curves.easeInOut),
     ));
 
-    // Start animation with slight delay for better feel
     Future.delayed(const Duration(milliseconds: 100), () {
       _controller.forward();
     });
@@ -116,7 +115,6 @@ class _SplashScreenState extends State<SplashScreen>
         ),
         child: Stack(
           children: [
-            // Enhanced animated background
             _buildAnimatedBackground(),
 
             // Main content
@@ -124,11 +122,9 @@ class _SplashScreenState extends State<SplashScreen>
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Enhanced logo container
                   Stack(
                     alignment: Alignment.center,
                     children: [
-                      // Glow effect
                       AnimatedBuilder(
                         animation: _glowAnimation,
                         builder: (context, child) {
@@ -148,7 +144,6 @@ class _SplashScreenState extends State<SplashScreen>
                         },
                       ),
 
-                      // Outer rotating ring
                       AnimatedBuilder(
                         animation: _rotateAnimation,
                         builder: (context, child) {
@@ -172,7 +167,6 @@ class _SplashScreenState extends State<SplashScreen>
                         },
                       ),
 
-                      // Main logo with enhanced styling
                       ScaleTransition(
                         scale: _scaleAnimation,
                         child: FadeTransition(

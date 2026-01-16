@@ -24,12 +24,10 @@ class AuthWrapper extends StatelessWidget {
           );
         }
 
-        // ✅ USER ALREADY LOGGED IN
         if (snapshot.data == true) {
           return const HomePage();
         }
 
-        // ❌ NOT LOGGED IN
         return OnboardingScreen();
       },
     );

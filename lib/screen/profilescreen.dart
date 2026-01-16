@@ -21,7 +21,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool loading = true;
   Map<String, dynamic>? profile;
 
-  final String apiBase = "https://9dbee0c9f126.ngrok-free.app";
+  final String apiBase = "https://f71ed3300e16.ngrok-free.app";
   @override
   void initState() {
     super.initState();

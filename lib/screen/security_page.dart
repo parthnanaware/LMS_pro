@@ -19,7 +19,7 @@ class SecurityPage extends StatefulWidget {
 }
 
 class _SecurityPageState extends State<SecurityPage> {
-  final String apiBase = "https://9dbee0c9f126.ngrok-free.app";
+  final String apiBase = "https://f71ed3300e16.ngrok-free.app";
 
   bool loading = true;
   bool twoFactorEnabled = false;

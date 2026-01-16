@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 /// Same API host without https://
-const String API_HOST = "9dbee0c9f126.ngrok-free.app";
+const String API_HOST = "f71ed3300e16.ngrok-free.app";
 
 class SubjectSectionPage extends StatefulWidget {
   final String subjectId;

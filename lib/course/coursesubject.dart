@@ -5,7 +5,7 @@ import 'package:http/http.dart' as http;
 import 'subject_section_page.dart';
 
 /// 🔥 SINGLE API SOURCE (without https://)
-const String API_HOST = "9dbee0c9f126.ngrok-free.app";
+const String API_HOST = "f71ed3300e16.ngrok-free.app";
 
 class CourseSubjectPage extends StatefulWidget {
   final String courseId;
