@@ -49,7 +49,7 @@ class _EnrollmentPageState extends State<EnrollmentPage> {
     });
 
     try {
-      final resp = await ApiHelper().httpGet("enrolments/my");
+      final resp = await ApiHelper().httpGet("/api/enrolments/my");
 
       if (resp.statusCode == 200) {
         final body = json.decode(resp.body);

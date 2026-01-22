@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:http/http.dart' as http;
+import 'package:lms_pro/ApiHelper/apihelper.dart';
 import 'package:lms_pro/screen/AboutAppPage.dart';
 import 'package:lms_pro/singin/login.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -21,7 +22,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool loading = true;
   Map<String, dynamic>? profile;
 
-  final String apiBase = "https://f71ed3300e16.ngrok-free.app";
+  final String apiBase = '${ApiHelper.baseUrl}';
   @override
   void initState() {
     super.initState();

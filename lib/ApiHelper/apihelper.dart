@@ -5,9 +5,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiHelper {
   static const String baseUrl =
-      "https://f71ed3300e16.ngrok-free.app/api/";
+      "https://18c60e28a489.ngrok-free.app";
 
-  // ---------------------- COMMON HEADERS ----------------------
   Future<Map<String, String>> _headers() async {
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString("auth_token");
@@ -19,7 +18,6 @@ class ApiHelper {
     };
   }
 
-  // ---------------------- GET ----------------------
   Future<http.Response> httpGet(String path) async {
     return await http.get(
       Uri.parse(baseUrl + path),
@@ -27,7 +25,6 @@ class ApiHelper {
     );
   }
 
-  // ---------------------- POST ----------------------
   Future<http.Response> httpPost(String path, Map data) async {
     return await http.post(
       Uri.parse(baseUrl + path),
@@ -39,7 +36,6 @@ class ApiHelper {
     );
   }
 
-  // ---------------------- PUT ----------------------
   Future<http.Response> httpPut(String path, Map data) async {
     return await http.put(
       Uri.parse(baseUrl + path),
@@ -51,7 +47,6 @@ class ApiHelper {
     );
   }
 
-  // ---------------------- DELETE ----------------------
   Future<http.Response> httpDelete(String path) async {
     return await http.delete(
       Uri.parse(baseUrl + path),
@@ -59,9 +54,6 @@ class ApiHelper {
     );
   }
 
-  // =====================================================
-  // 🔥 FILE UPLOAD (PDF) — FINAL & WORKING
-  // =====================================================
   Future<void> uploadFile({
     required String endpoint,
     required String filePath,
@@ -70,19 +62,11 @@ class ApiHelper {
     final uri = Uri.parse(baseUrl + endpoint);
 
     final request = http.MultipartRequest('POST', uri);
-
-    // 🔑 Auth headers (DO NOT set Content-Type here)
     request.headers.addAll(await _headers());
-
-    // Add text fields
     request.fields.addAll(fields);
 
-    // Add file (Laravel expects "file")
     request.files.add(
-      await http.MultipartFile.fromPath(
-        'file',
-        filePath,
-      ),
+      await http.MultipartFile.fromPath('file', filePath),
     );
 
     final response = await request.send();
@@ -93,5 +77,11 @@ class ApiHelper {
         'Upload failed (${response.statusCode}) → $resp',
       );
     }
+  }
+
+  // 🔑 ADD THIS
+  Future<int> getUserId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt("user_id") ?? 0;
   }
 }

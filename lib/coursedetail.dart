@@ -43,7 +43,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
 
   Future<void> fetchCourse() async {
     try {
-      final res = await ApiHelper().httpGet("courses/${widget.courseId}");
+      final res = await ApiHelper().httpGet("/api/courses/${widget.courseId}");
       if (res.statusCode == 200) {
         final decoded = json.decode(res.body);
         setState(() {
@@ -67,7 +67,7 @@ class _CourseDetailPageState extends State<CourseDetailPage> {
   Future<void> fetchSubjects() async {
     try {
       final res = await ApiHelper().httpGet(
-        "subjects/courses/${widget.courseId}",
+        "/api/subjects/courses/${widget.courseId}",
       );
       final decoded = json.decode(res.body);
       setState(() {

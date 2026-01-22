@@ -20,7 +20,7 @@ class PrivacyPolicyPage extends StatelessWidget {
             _section(
               IconsaxPlusLinear.shield_tick,
               "Your Privacy",
-              "We respect your privacy and protect your personal information at all times.",
+                "We respect your privacy and protect your personal information at all times.",
             ),
             _section(
               IconsaxPlusLinear.user,

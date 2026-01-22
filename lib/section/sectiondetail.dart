@@ -39,7 +39,8 @@ class _SectionDetailPageState extends State<SectionDetailPage> {
 
     try {
       final res = await api.httpGet(
-        'sections/${widget.sectionId}/sessions?user_id=1',
+        '/api/sections/${widget.sectionId}/'
+            'sessions?user_id=1',
       );
 
       final decoded = json.decode(res.body);
@@ -68,7 +69,7 @@ class _SectionDetailPageState extends State<SectionDetailPage> {
 
     try {
       final res = await api.httpGet(
-        'sections/${widget.sectionId}/sessions?user_id=1',
+        '/api/sections/${widget.sectionId}/sessions?user_id=1',
       );
 
       final decoded = json.decode(res.body);

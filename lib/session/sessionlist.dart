@@ -21,6 +21,7 @@ class _SessionListPageState extends State<SessionListPage> {
   final ApiHelper api = ApiHelper();
   bool loading = true;
   List sessions = [];
+  double progress = 0;
 
   late ColorScheme _colors;
   late ThemeData _theme;
@@ -42,20 +43,21 @@ class _SessionListPageState extends State<SessionListPage> {
     setState(() => loading = true);
 
     final res = await api.httpGet(
-      'sections/${widget.sectionId}/sessions?user_id=${widget.userId}',
+      '/api/sections/${widget.sectionId}/sessions?user_id=${widget.userId}',
     );
 
     final decoded = json.decode(res.body);
 
     setState(() {
       sessions = decoded['data'] ?? [];
+      progress = (decoded['progress'] ?? 0).toDouble();
       loading = false;
     });
   }
 
   // ===== SEQUENTIAL UNLOCK LOGIC =====
   bool isSessionUnlocked(int index) {
-    if (index == 0) return true; // first always open
+    if (index == 0) return true;
 
     final prev = sessions[index - 1];
     final String prevType = prev['type']?.toString() ?? '';
@@ -202,7 +204,6 @@ class _SessionListPageState extends State<SessionListPage> {
                   ),
                 ),
                 const SizedBox(width: 16),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -226,8 +227,9 @@ class _SessionListPageState extends State<SessionListPage> {
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                                 color: Colors.grey[800],
-                                decoration:
-                                isUnlocked ? TextDecoration.none : TextDecoration.lineThrough,
+                                decoration: isUnlocked
+                                    ? TextDecoration.none
+                                    : TextDecoration.lineThrough,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -240,7 +242,6 @@ class _SessionListPageState extends State<SessionListPage> {
                     ],
                   ),
                 ),
-
                 Icon(
                   isUnlocked ? Icons.arrow_forward_ios : Icons.lock_outline,
                   size: 18,
@@ -280,15 +281,38 @@ class _SessionListPageState extends State<SessionListPage> {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: _colors.primary.withOpacity(0.1)),
             ),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.info_outline, color: _colors.primary),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Text(
-                    'Complete sessions sequentially to unlock more content',
-                    style: TextStyle(fontSize: 13),
+                Row(
+                  children: [
+                    Icon(Icons.trending_up, color: _colors.primary),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Your Progress: ${progress.toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: progress / 100,
+                    minHeight: 10,
+                    backgroundColor: Colors.grey.shade300,
+                    valueColor: AlwaysStoppedAnimation<Color>(_colors.primary),
                   ),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Upload and get approval to increase your progress',
+                  style: TextStyle(fontSize: 12, color: Colors.black54),
                 ),
               ],
             ),

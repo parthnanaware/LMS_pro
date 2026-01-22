@@ -16,7 +16,7 @@ class SubjectDetailPage extends StatefulWidget {
   });
 
   @override
-    State<SubjectDetailPage> createState() => _SubjectDetailPageState();
+  State<SubjectDetailPage> createState() => _SubjectDetailPageState();
 }
 
 class _SubjectDetailPageState extends State<SubjectDetailPage> {
@@ -24,10 +24,13 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
   bool _isError = false;
   List<dynamic> _sections = [];
 
+  double _subjectProgress = 0.0; // always stored as 0–100
+
   @override
   void initState() {
     super.initState();
     _fetchSections();
+    _fetchSubjectProgress();
   }
 
   Color _getSubjectColor() {
@@ -45,7 +48,7 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
   Future<void> _fetchSections() async {
     try {
       final res =
-      await ApiHelper().httpGet("sections/by-subject/${widget.subjectId}");
+      await ApiHelper().httpGet("/api/sections/by-subject/${widget.subjectId}");
 
       if (res.statusCode == 200) {
         final decoded = json.decode(res.body);
@@ -54,18 +57,39 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
           _isLoading = false;
         });
       } else {
-        _isError = true;
-        _isLoading = false;
+        setState(() {
+          _isError = true;
+          _isLoading = false;
+        });
       }
     } catch (_) {
-      _isError = true;
-      _isLoading = false;
+      setState(() {
+        _isError = true;
+        _isLoading = false;
+      });
     }
   }
 
-  // =========================
-  // SECTION CARD
-  // =========================
+  Future<void> _fetchSubjectProgress() async {
+    try {
+      final userId = await ApiHelper().getUserId();
+
+      final res = await ApiHelper().httpGet(
+        "/subject/${widget.subjectId}/progress?user_id=$userId",
+      );
+
+      if (res.statusCode == 200) {
+        final decoded = json.decode(res.body);
+        final raw = (decoded["subject_progress"] as num?)?.toDouble() ?? 0.0;
+
+        setState(() {
+          // Normalize: if API sends 0–1, convert to 0–100
+          _subjectProgress = raw <= 1 ? raw * 100 : raw;
+        });
+      }
+    } catch (_) {}
+  }
+
   Widget _buildSectionCard(BuildContext context, int index) {
     final section = _sections[index];
     final subjectColor = _getSubjectColor();
@@ -73,8 +97,6 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
 
     final String sectionName =
         section["section_name"]?.toString() ?? "Untitled Section";
-    final String description =
-        section["description"]?.toString() ?? "No description";
 
     final int sectionId =
         (section["section_id"] as num?)?.toInt() ??
@@ -82,12 +104,8 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
             0;
 
     final String duration = section["duration"]?.toString() ?? "0 min";
-    final bool isCompleted = section["is_completed"] == true;
 
-    /// 🔥 FIXED TYPES
-    final int totalItems =
-        (section["total_items"] as num?)?.toInt() ?? 0;
-
+    final int totalItems = (section["total_items"] as num?)?.toInt() ?? 0;
     final int completedItems =
         (section["completed_items"] as num?)?.toInt() ?? 0;
 
@@ -109,7 +127,6 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
                   courseId: widget.courseId,
                   subjectId: widget.subjectId,
                   sectionId: sectionId,
-                  // sectionObject: section,
                 ),
               ),
             );
@@ -129,37 +146,19 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
                     AlwaysStoppedAnimation<Color>(subjectColor),
                   ),
                 ),
-
                 const SizedBox(width: 16),
-
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              sectionName,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleMedium
-                                  ?.copyWith(fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                          if (isCompleted)
-                            const Icon(Icons.check_circle,
-                                color: Colors.green, size: 18),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
                       Text(
-                        description,
+                        sectionName,
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
+                        style: theme.textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Text(
                         "$completedItems / $totalItems items • $duration",
                         style: theme.textTheme.labelSmall,
@@ -167,7 +166,6 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
                     ],
                   ),
                 ),
-
                 const Icon(Icons.chevron_right_rounded),
               ],
             ),
@@ -190,10 +188,6 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
             subjectColor.withOpacity(0.7),
           ],
         ),
-        borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,102 +197,59 @@ class _SubjectDetailPageState extends State<SubjectDetailPage> {
             style: theme.textTheme.headlineMedium
                 ?.copyWith(color: Colors.white, fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 8),
-          Text(
-            "${_sections.length} Sections",
-            style: TextStyle(color: Colors.white.withOpacity(0.9)),
-          ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
 
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildStatItem(
-                    _calculateTotalDuration(), "Time", Icons.timer),
-                const SizedBox(width: 16),
-                _buildStatItem(
-                    _calculateCompletionRate(), "Progress", Icons.trending_up),
-                const SizedBox(width: 16),
-                _buildStatItem(
-                    _calculateCompletedSections(), "Completed", Icons.check),
-              ],
-            ),
+          // 🔥 Subject Progress Bar
+          Row(
+            children: [
+              Expanded(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: LinearProgressIndicator(
+                    value: _subjectProgress / 100, // 0.0 – 1.0
+                    minHeight: 8,
+                    backgroundColor: Colors.white.withOpacity(0.25),
+                    valueColor:
+                    const AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                "${_subjectProgress.toInt()}%",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
 
-  Widget _buildStatItem(String value, String label, IconData icon) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.15),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: Colors.white),
-        ),
-        const SizedBox(height: 6),
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white, fontWeight: FontWeight.bold)),
-        Text(label,
-            style: TextStyle(color: Colors.white.withOpacity(0.8))),
-      ],
-    );
-  }
-
-
-  String _calculateTotalDuration() {
-    int totalMinutes = 0;
-    for (var s in _sections) {
-      final match =
-      RegExp(r'(\d+)').firstMatch(s["duration"]?.toString() ?? "");
-      if (match != null) {
-        totalMinutes += int.tryParse(match.group(1)!) ?? 0;
-      }
-    }
-    return totalMinutes >= 60
-        ? "${totalMinutes ~/ 60}h"
-        : "${totalMinutes}m";
-  }
-
-  String _calculateCompletionRate() {
-    int total = 0, done = 0;
-    for (var s in _sections) {
-      total += (s["total_items"] as num?)?.toInt() ?? 0;
-      done += (s["completed_items"] as num?)?.toInt() ?? 0;
-    }
-    if (total == 0) return "0%";
-    return "${((done / total) * 100).toInt()}%";
-  }
-
-  String _calculateCompletedSections() {
-    final completed =
-        _sections.where((e) => e["is_completed"] == true).length;
-    return "$completed/${_sections.length}";
-  }
-
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
       return const Scaffold(
-          body: Center(child: CircularProgressIndicator()));
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
+
     if (_isError) {
-      return const Scaffold(body: Center(child: Text("Error loading data")));
+      return const Scaffold(
+        body: Center(child: Text("Error loading data")),
+      );
     }
 
     return Scaffold(
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 260,
+            expandedHeight: 220,
             pinned: true,
-            backgroundColor: _getSubjectColor(),  
+            backgroundColor: _getSubjectColor(),
             flexibleSpace: FlexibleSpaceBar(
               background: _buildHeader(context),
             ),

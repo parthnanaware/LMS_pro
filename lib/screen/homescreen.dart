@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:http/http.dart' as http;
+import 'package:lms_pro/ApiHelper/apihelper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../main.dart';
@@ -19,7 +20,7 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  static const apiBase = "https://f71ed3300e16.ngrok-free.app";
+  static const apiBase = '${ApiHelper.baseUrl}';
 
   int _currentIndex = 0;
   int _cartCount = 0;

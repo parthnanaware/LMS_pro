@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:iconsax_plus/iconsax_plus.dart';
 import 'package:http/http.dart' as http;
+import 'package:lms_pro/ApiHelper/apihelper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shimmer/shimmer.dart';
@@ -19,7 +20,7 @@ class SecurityPage extends StatefulWidget {
 }
 
 class _SecurityPageState extends State<SecurityPage> {
-  final String apiBase = "https://f71ed3300e16.ngrok-free.app";
+  final String apiBase = '${ApiHelper.baseUrl}';
 
   bool loading = true;
   bool twoFactorEnabled = false;
@@ -909,11 +910,19 @@ class _SecurityPageState extends State<SecurityPage> {
   }
 
   Widget _sessionTile(dynamic session, bool isCurrent) {
-    final deviceName = getDeviceName(session["user_agent"]);
-    final deviceIcon = getDeviceIcon(session["user_agent"]);
-    final deviceColor = getDeviceColor(session["user_agent"]);
-    final ipAddress = session["ip_address"] ?? "IP Unknown";
-    final lastActive = session["last_active"] ?? "Recently";
+    final ua =
+        session["user_agent"] ?? session["agent"] ?? session["device"] ?? "";
+    final ip =
+        session["ip_address"] ?? session["ip"] ?? "IP Unknown";
+    final last =
+        session["last_active"] ??
+            session["last_activity"] ??
+            session["last_active_at"] ??
+            "Recently";
+
+    final deviceName = getDeviceName(ua);
+    final deviceIcon = getDeviceIcon(ua);
+    final deviceColor = getDeviceColor(ua);
 
     return Material(
       color: Colors.transparent,
@@ -951,10 +960,7 @@ class _SecurityPageState extends State<SecurityPage> {
                         if (isCurrent)
                           Container(
                             margin: EdgeInsets.only(left: 8),
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
+                            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
                               color: Color(0xFF10B981).withOpacity(0.1),
                               borderRadius: BorderRadius.circular(8),
@@ -972,7 +978,7 @@ class _SecurityPageState extends State<SecurityPage> {
                     ),
                     SizedBox(height: 4),
                     Text(
-                      "$ipAddress • $lastActive",
+                      "$ip • $last",
                       style: TextStyle(
                         fontSize: 13,
                         color: isDark ? Color(0xFF94A3B8) : Color(0xFF64748B),
@@ -996,4 +1002,5 @@ class _SecurityPageState extends State<SecurityPage> {
       ),
     );
   }
+
 }

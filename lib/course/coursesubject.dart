@@ -1,11 +1,12 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:lms_pro/ApiHelper/apihelper.dart';
 
 import 'subject_section_page.dart';
 
 /// 🔥 SINGLE API SOURCE (without https://)
-const String API_HOST = "f71ed3300e16.ngrok-free.app";
+final String apiUrl = '${ApiHelper.baseUrl}';
 
 class CourseSubjectPage extends StatefulWidget {
   final String courseId;
@@ -32,9 +33,8 @@ class _CourseSubjectPageState extends State<CourseSubjectPage> {
 
   Future<void> fetchSubjects() async {
     try {
-      final url = Uri.https(
-        API_HOST,
-        "/api/subjects/courses/${widget.courseId}",
+      final url = Uri.parse(
+        '${ApiHelper.baseUrl}/api/subjects/courses/${widget.courseId}',
       );
 
       final res = await http.get(

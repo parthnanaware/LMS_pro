@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:iconsax_plus/iconsax_plus.dart';
+import 'package:lms_pro/ApiHelper/apihelper.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 
@@ -18,7 +19,7 @@ class _CartPageState extends State<CartPage> {
   bool isCheckingOut = false;
   String? userId;
   late Razorpay _razorpay;
-  final String baseUrl = "https://f71ed3300e16.ngrok-free.app";
+  final String baseUrl = '${ApiHelper.baseUrl}';
 
   @override
   void initState() {

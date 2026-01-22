@@ -1,21 +1,20 @@
 import 'dart:math';
-
 import 'package:flutter/material.dart';
-import 'package:lms_pro/singin/login.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class SplashScreen extends StatefulWidget {
+class PremiumSplashScreen extends StatefulWidget {
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  State<PremiumSplashScreen> createState() => _PremiumSplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen>
+class _PremiumSplashScreenState extends State<PremiumSplashScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _scaleAnimation;
   late Animation<double> _fadeAnimation;
-  late Animation<double> _rotateAnimation;
-  late Animation<Offset> _slideAnimation;
-  late Animation<double> _glowAnimation;
+  late Animation<Color?> _gradientAnimation;
+  late Animation<double> _textReveal;
+  late Animation<double> _gifReveal;
 
   @override
   void initState() {
@@ -26,69 +25,61 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
     );
 
+    // FIXED: TweenSequence weights now add up to 100
     _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(tween: Tween<double>(begin: 0.4, end: 1.05), weight: 40),
-      TweenSequenceItem(tween: Tween<double>(begin: 1.05, end: 1.0), weight: 60),
-    ]).animate(CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    ));
+      TweenSequenceItem(tween: Tween<double>(begin: 0.5, end: 1.1).chain(
+          CurveTween(curve: Curves.easeOutCubic)), weight: 40),
+      TweenSequenceItem(tween: Tween<double>(begin: 1.1, end: 1.0).chain(
+          CurveTween(curve: Curves.easeInOutBack)), weight: 60),
+    ]).animate(_controller);
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.2, 1.0, curve: Curves.easeInOutQuint),
-    ));
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOutCubic,
+      ),
+    );
 
-    _rotateAnimation = Tween<double>(
-      begin: 0.0,
-      end: 2 * 3.14159,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.0, 0.6, curve: Curves.easeInOut),
-    ));
+    _gradientAnimation = ColorTween(
+      begin: const Color(0xFF0F172A),
+      end: const Color(0xFF1E293B),
+    ).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
 
-    _slideAnimation = Tween<Offset>(
-      begin: const Offset(0, 0.3),
-      end: Offset.zero,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.4, 1.0, curve: Curves.easeOutCubic),
-    ));
+    _textReveal = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.4, 1.0, curve: Curves.easeOutQuart),
+      ),
+    );
 
-    _glowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.6, 1.0, curve: Curves.easeInOut),
-    ));
+    _gifReveal = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0.2, 0.8, curve: Curves.easeInOutCubic),
+      ),
+    );
 
-    Future.delayed(const Duration(milliseconds: 100), () {
-      _controller.forward();
+    _controller.forward().whenComplete(() {
+      Future.delayed(const Duration(milliseconds: 1000), _navigate);
     });
+  }
 
-    Future.delayed(const Duration(seconds: 3), () {
-      if (!mounted) return;
-      Navigator.pushReplacement(
-        context,
-        PageRouteBuilder(
-          pageBuilder: (_, __, ___) => OnboardingScreen(),
-          transitionDuration: const Duration(milliseconds: 1200),
-          transitionsBuilder: (_, animation, __, child) {
-            return FadeTransition(
-              opacity: CurvedAnimation(
-                parent: animation,
-                curve: Curves.easeInOut,
-              ),
-              child: child,
-            );
-          },
-        ),
-      );
-    });
+  Future<void> _navigate() async {
+    if (!mounted) return;
+
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('auth_token');
+
+    if (token != null && token.isNotEmpty) {
+      Navigator.pushReplacementNamed(context, '/student-dashboard');
+    } else {
+      Navigator.pushReplacementNamed(context, '/onboarding');
+    }
   }
 
   @override
@@ -104,218 +95,142 @@ class _SplashScreenState extends State<SplashScreen>
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: [
-              Color(0xFF6366F1), // Indigo
-              Color(0xFF8B5CF6), // Violet
-              Color(0xFFEC4899), // Pink
+              const Color(0xFF0F172A),
+              const Color(0xFF1E293B),
+              const Color(0xFF0F172A),
             ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            stops: [0.0, 0.5, 1.0],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: const [0.0, 0.5, 1.0],
           ),
         ),
         child: Stack(
           children: [
-            _buildAnimatedBackground(),
+            // Background Elements
+            _buildBackgroundElements(),
 
-            // Main content
+            // Main Content
             Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Stack(
-                    alignment: Alignment.center,
+              child: AnimatedBuilder(
+                animation: _controller,
+                builder: (context, child) {
+                  return Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      AnimatedBuilder(
-                        animation: _glowAnimation,
-                        builder: (context, child) {
-                          return Container(
-                            width: 240,
-                            height: 240,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              gradient: RadialGradient(
-                                colors: [
-                                  Colors.white.withOpacity(0.3 * _glowAnimation.value),
-                                  Colors.transparent,
+                      // GIF Container with Premium Effects
+                      _buildGifContainer(),
+
+                      const SizedBox(height: 50),
+
+                      // Logo
+                      ScaleTransition(
+                        scale: _scaleAnimation,
+                        child: Container(
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.white.withOpacity(0.15),
+                                Colors.white.withOpacity(0.05),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            border: Border.all(
+                              color: Colors.white.withOpacity(0.2),
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF3B82F6).withOpacity(0.3),
+                                blurRadius: 40,
+                                spreadRadius: 5,
+                              ),
+                            ],
+                          ),
+                          child: Icon(
+                            Icons.school_rounded,
+                            size: 60,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // Text Content
+                      FadeTransition(
+                        opacity: _textReveal,
+                        child: Column(
+                          children: [
+                            Text(
+                              "LearnHub Pro",
+                              style: TextStyle(
+                                fontSize: 48,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 1.5,
+                                foreground: Paint()
+                                  ..shader = LinearGradient(
+                                    colors: [
+                                      const Color(0xFF60A5FA),
+                                      const Color(0xFF8B5CF6),
+                                      const Color(0xFFEC4899),
+                                    ],
+                                  ).createShader(
+                                    const Rect.fromLTWH(0, 0, 300, 70),
+                                  ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 24, vertical: 12),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(20),
+                                gradient: LinearGradient(
+                                  colors: [
+                                    Colors.white.withOpacity(0.1),
+                                    Colors.white.withOpacity(0.05),
+                                  ],
+                                ),
+                                border: Border.all(
+                                  color: Colors.white.withOpacity(0.1),
+                                ),
+                              ),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    "Next Generation Learning Platform",
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.9),
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                      letterSpacing: 1.1,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "AI • Interactive • Personalized",
+                                    style: TextStyle(
+                                      color: Colors.white.withOpacity(0.7),
+                                      fontSize: 12,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
-                          );
-                        },
-                      ),
-
-                      AnimatedBuilder(
-                        animation: _rotateAnimation,
-                        builder: (context, child) {
-                          return Transform.rotate(
-                            angle: _rotateAnimation.value,
-                            child: Container(
-                              width: 220,
-                              height: 220,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                gradient: SweepGradient(
-                                  colors: [
-                                    Colors.white.withOpacity(0.4),
-                                    Colors.white.withOpacity(0.1),
-                                    Colors.white.withOpacity(0.4),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-
-                      ScaleTransition(
-                        scale: _scaleAnimation,
-                        child: FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: Container(
-                            width: 180,
-                            height: 180,
-                            decoration: BoxDecoration(
-                              color: Colors.white.withOpacity(0.15),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: Colors.white.withOpacity(0.25),
-                                width: 2,
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.black.withOpacity(0.15),
-                                  blurRadius: 25,
-                                  offset: const Offset(0, 15),
-                                ),
-                                BoxShadow(
-                                  color: Colors.white.withOpacity(0.1),
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(90),
-                              child: Image.asset(
-                                "assets/animations/student with laptop.gif",
-                                width: 170,
-                                height: 170,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    Icons.school_rounded,
-                                    size: 64,
-                                    color: Colors.white.withOpacity(0.95),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
+                          ],
                         ),
                       ),
+
+                      const SizedBox(height: 60),
+
+                      // Loading Indicator
+                      _buildLoadingIndicator(),
                     ],
-                  ),
-
-                  const SizedBox(height: 45),
-
-                  // Enhanced text content
-                  SlideTransition(
-                    position: _slideAnimation,
-                    child: FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: Column(
-                        children: [
-                          AnimatedBuilder(
-                            animation: _glowAnimation,
-                            builder: (context, child) {
-                              return Text(
-                                "LearnHub Pro",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 42,
-                                  fontWeight: FontWeight.w800,
-                                  letterSpacing: 1.2,
-                                  shadows: [
-                                    Shadow(
-                                      blurRadius: 15 * _glowAnimation.value,
-                                      color: Colors.white.withOpacity(0.5),
-                                      offset: const Offset(0, 0),
-                                    ),
-                                    Shadow(
-                                      blurRadius: 30 * _glowAnimation.value,
-                                      color: Colors.purpleAccent.withOpacity(0.3),
-                                      offset: const Offset(0, 0),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            "Elevate Your Learning Experience",
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.85),
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              letterSpacing: 0.6,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 55),
-
-                  // Smoother loading indicator
-                  _buildEnhancedLoader(),
-                ],
-              ),
-            ),
-
-            // Enhanced bottom info
-            Positioned(
-              bottom: 45,
-              left: 0,
-              right: 0,
-              child: FadeTransition(
-                opacity: CurvedAnimation(
-                  parent: _fadeAnimation,
-                  curve: const Interval(0.7, 1.0),
-                ),
-                child: Column(
-                  children: [
-                    Text(
-                      "Version 1.0.0",
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.65),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w300,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.favorite,
-                          size: 12,
-                          color: Colors.pinkAccent.withOpacity(0.7),
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          "Made with passion for education",
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.5),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ],
@@ -324,164 +239,219 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
-  Widget _buildAnimatedBackground() {
-    return Stack(
-      children: [
-        // Large decorative elements
-        Positioned(
-          top: -80,
-          right: -80,
-          child: Container(
-            width: 200,
-            height: 200,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  Colors.white.withOpacity(0.08),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        Positioned(
-          bottom: -100,
-          left: -100,
-          child: Container(
-            width: 250,
-            height: 250,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: [
-                  Colors.purpleAccent.withOpacity(0.05),
-                  Colors.transparent,
-                ],
-              ),
-            ),
-          ),
-        ),
-
-        // Floating particles with smoother movement
-        ..._buildFloatingParticles(),
-      ],
-    );
-  }
-
-  List<Widget> _buildFloatingParticles() {
-    final particles = [
-      {'top': 120.0, 'left': 50.0, 'size': 6.0, 'delay': 0.0},
-      {'top': 80.0, 'right': 70.0, 'size': 8.0, 'delay': 0.3},
-      {'top': 200.0, 'left': 30.0, 'size': 5.0, 'delay': 0.6},
-      {'bottom': 150.0, 'right': 40.0, 'size': 7.0, 'delay': 0.9},
-      {'top': 280.0, 'right': 100.0, 'size': 4.0, 'delay': 1.2},
-    ];
-
-    return particles.map((particle) {
-      return Positioned(
-        top: particle['top'],
-        left: particle['left'],
-        right: particle['right'],
-        bottom: particle['bottom'],
-        child: AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final delay = particle['delay']!;
-            final value = (_controller.value - delay).clamp(0.0, 1.0);
-            final opacity = (0.3 * value).clamp(0.0, 0.3);
-            final offset = 20 * sin(value * 2 * 3.14159);
-
-            return Transform.translate(
-              offset: Offset(0, offset),
-              child: Opacity(
-                opacity: opacity,
-                child: Container(
-                  width: particle['size'],
-                  height: particle['size'],
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.white.withOpacity(0.5),
-                        blurRadius: 8,
-                      ),
-                    ],
+  Widget _buildGifContainer() {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, 10 * sin(_controller.value * 2 * pi)),
+          child: Opacity(
+            opacity: _gifReveal.value,
+            child: Container(
+              width: 250,
+              height: 250,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: RadialGradient(
+                  colors: [
+                    Colors.white.withOpacity(0.05),
+                    Colors.transparent,
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF3B82F6).withOpacity(0.4),
+                    blurRadius: 40,
+                    spreadRadius: 5,
                   ),
+                  BoxShadow(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.3),
+                    blurRadius: 60,
+                    spreadRadius: -10,
+                  ),
+                ],
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.15),
+                  width: 2,
                 ),
               ),
-            );
-          },
-        ),
-      );
-    }).toList();
-  }
-
-  Widget _buildEnhancedLoader() {
-    return SizedBox(
-      width: 140,
-      child: Column(
-        children: [
-          // Smooth wave loading animation
-          Container(
-            width: 120,
-            height: 3,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(2),
-            ),
-            child: AnimatedBuilder(
-              animation: _controller,
-              builder: (context, child) {
-                final waveValue = _controller.value * 2;
-                return Stack(
-                  children: [
-                    Positioned(
-                      left: 0,
-                      top: 0,
-                      bottom: 0,
-                      child: Container(
-                        width: 120 * (waveValue % 1),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [
-                              Colors.white.withOpacity(0.8),
-                              Colors.white,
-                              Colors.white.withOpacity(0.8),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(2),
+              child: Stack(
+                children: [
+                  // Outer ring
+                  Padding(
+                    padding: const EdgeInsets.all(2.0),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.1),
                         ),
                       ),
                     ),
-                  ],
-                );
-              },
+                  ),
+
+                  // GIF
+                  Padding(
+                    padding: const EdgeInsets.all(20.0),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(115),
+                      child: Image.asset(
+                        'assets/animations/student with laptop.gif',
+                        fit: BoxFit.cover,
+                        width: 210,
+                        height: 210,
+                        gaplessPlayback: true,
+                      ),
+                    ),
+                  ),
+
+                  // Floating dots
+                  ..._buildFloatingDots(),
+                ],
+              ),
             ),
           ),
+        );
+      },
+    );
+  }
 
-          const SizedBox(height: 25),
+  List<Widget> _buildFloatingDots() {
+    return List.generate(4, (index) {
+      final angle = _controller.value * 2 * pi + (index * pi / 2);
+      return Positioned(
+        left: 125 + cos(angle) * 115,
+        top: 125 + sin(angle) * 115,
+        child: Transform.scale(
+          scale: 0.5 + 0.5 * sin(angle * 2),
+          child: Container(
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF3B82F6),
+                  const Color(0xFF8B5CF6),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    });
+  }
 
-          // Enhanced loading text
-          AnimatedBuilder(
+  Widget _buildLoadingIndicator() {
+    return Column(
+      children: [
+        Container(
+          width: 150,
+          height: 3,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(2),
+            color: Colors.white.withOpacity(0.1),
+          ),
+          child: AnimatedBuilder(
             animation: _controller,
             builder: (context, child) {
-              final dots = ((_controller.value * 3) % 4).floor();
-              return Text(
-                "Loading${List.generate(dots, (_) => '.').join()}",
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w400,
-                  letterSpacing: 1.0,
+              return Container(
+                width: 150 * _controller.value,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(2),
+                  gradient: LinearGradient(
+                    colors: [
+                      const Color(0xFF3B82F6),
+                      const Color(0xFF8B5CF6),
+                    ],
+                  ),
                 ),
               );
             },
           ),
-        ],
-      ),
+        ),
+        const SizedBox(height: 15),
+        Text(
+          "Initializing Premium Experience...",
+          style: TextStyle(
+            color: Colors.white.withOpacity(0.8),
+            fontSize: 12,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBackgroundElements() {
+    return Stack(
+      children: [
+        // Large circles
+        Positioned(
+          top: -100,
+          right: -100,
+          child: Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF3B82F6).withOpacity(0.05),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        Positioned(
+          bottom: -150,
+          left: -100,
+          child: Container(
+            width: 300,
+            height: 300,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: RadialGradient(
+                colors: [
+                  const Color(0xFF8B5CF6).withOpacity(0.05),
+                  Colors.transparent,
+                ],
+              ),
+            ),
+          ),
+        ),
+
+        // Small floating circles
+        ...List.generate(5, (index) {
+          return Positioned(
+            left: Random().nextDouble() * MediaQuery.of(context).size.width,
+            top: Random().nextDouble() * MediaQuery.of(context).size.height,
+            child: AnimatedBuilder(
+              animation: _controller,
+              builder: (context, child) {
+                return Transform.translate(
+                  offset: Offset(
+                    0,
+                    sin((_controller.value * 2 * pi) + index) * 20,
+                  ),
+                  child: Opacity(
+                    opacity: 0.3 * _fadeAnimation.value,
+                    child: Container(
+                      width: 4,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        }),
+      ],
     );
   }
 }

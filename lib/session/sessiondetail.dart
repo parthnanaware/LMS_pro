@@ -24,8 +24,9 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
 
   bool loading = true;
   bool uploading = false;
-  Map<String, dynamic>? session;
+  bool videoCompleted = false;
 
+  Map<String, dynamic>? session;
   YoutubePlayerController? _videoController;
 
   @override
@@ -36,7 +37,7 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
 
   Future<void> fetchSession() async {
     final res = await api.httpGet(
-      'sessions/${widget.sessionId}?user_id=${widget.userId}',
+      '/api/sessions/${widget.sessionId}?user_id=${widget.userId}',
     );
 
     final decoded = json.decode(res.body);
@@ -63,6 +64,22 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
     });
   }
 
+  Future<void> markVideoComplete() async {
+    await api.httpPost('/api/video-complete', {
+      'user_id': widget.userId.toString(),
+      'session_id': widget.sessionId.toString(),
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Video completed! Progress updated.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    }
+  }
+
   Future<void> uploadPdf() async {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -74,7 +91,7 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
     setState(() => uploading = true);
 
     await api.uploadFile(
-      endpoint: 'session/upload-pdf',
+      endpoint: '/api/session/upload-pdf',
       filePath: result.files.single.path!,
       fields: {
         'session_id': widget.sessionId.toString(),
@@ -103,6 +120,8 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
     final String type = session?['type']?.toString() ?? '';
     final String title = session?['title']?.toString() ?? 'Session';
     final String pdfStatus = session?['pdf_status']?.toString() ?? '';
+    final String rejectReason =
+        session?['reject_reason']?.toString() ?? '';
     final String pdfUrl = session?['pdf_url']?.toString() ?? '';
 
     // If PDF is approved, open viewer directly
@@ -127,6 +146,12 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
                 child: YoutubePlayer(
                   controller: _videoController!,
                   showVideoProgressIndicator: true,
+                  onEnded: (meta) {
+                    if (!videoCompleted) {
+                      videoCompleted = true;
+                      markVideoComplete();
+                    }
+                  },
                 ),
               ),
 
@@ -142,7 +167,7 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
                 ),
               ),
 
-            // PDF INFO
+            // PDF SECTION
             if (type != 'video')
               Padding(
                 padding: const EdgeInsets.only(top: 16),
@@ -153,6 +178,17 @@ class _SessionDetailPageState extends State<SessionDetailPage> {
                         'Your PDF is under review ⏳',
                         style: TextStyle(color: Colors.orange),
                       ),
+
+                    // Rejected → backend sends pdf_status = locked + reject_reason
+                    if (pdfStatus == 'locked' && rejectReason.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          "Rejected: $rejectReason",
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      ),
+
                     if (pdfStatus != 'approved')
                       ElevatedButton.icon(
                         onPressed: uploading ? null : uploadPdf,

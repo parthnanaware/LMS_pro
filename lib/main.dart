@@ -64,7 +64,7 @@ class MyApp extends StatelessWidget {
             '/student-dashboard': (context) => const HomePage(),
           },
 
-          home: SplashScreen(),
+          home: PremiumSplashScreen(),
         );
       },
     );
